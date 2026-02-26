@@ -138,7 +138,7 @@
 @section('scripts')
 <script>
   // Auth guard
-  const token = localStorage.getItem('token');
+  // token is declared in layouts/app.blade.php
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'student') {
     localStorage.clear();

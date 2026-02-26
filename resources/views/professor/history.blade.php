@@ -66,7 +66,7 @@
 
 @section('scripts')
 <script>
-  const token = localStorage.getItem('token');
+  // token is declared in layouts/app.blade.php
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'professor') { localStorage.clear(); window.location.href = '/login'; }
   axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
