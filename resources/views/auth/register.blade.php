@@ -159,7 +159,7 @@
     // Load year levels and sections from API
     async function loadYearLevels() {
       try {
-        const res = await axios.get('/api/admin/year-levels');
+        const res = await axios.get('/api/year-levels');
         const select = document.getElementById('yearLevel');
         res.data.year_levels.forEach(yl => {
           select.innerHTML += `<option value="${yl.id}">${yl.name}</option>`;
@@ -178,7 +178,7 @@
       sectionSelect.innerHTML = '<option value="">Select section</option>';
       if (!yearLevelId) return;
       try {
-        const res = await axios.get('/api/admin/year-levels');
+        const res = await axios.get('/api/year-levels');
         const yl = res.data.year_levels.find(y => y.id == yearLevelId);
         if (yl && yl.sections) {
           yl.sections.forEach(s => {

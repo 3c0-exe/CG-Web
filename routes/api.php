@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\AdminController;
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::get('/year-levels', [AdminController::class, 'yearLevels']);
 
 // MQTT webhook (called by ESP32 / MQTT listener)
 Route::post('/attendance/scan', [AttendanceController::class, 'scanCard']);
