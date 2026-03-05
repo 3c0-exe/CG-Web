@@ -103,7 +103,7 @@
   // token is declared in layouts/app.blade.php
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'admin') { localStorage.clear(); window.location.href = '/login'; }
-  axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+
 
   let allUsers = [];
   let currentTab = 'all';

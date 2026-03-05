@@ -105,7 +105,7 @@
   // token is declared in layouts/app.blade.php
   let user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'student') { localStorage.clear(); window.location.href = '/login'; }
-  axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+
 
   document.getElementById('userName').textContent = user.name || 'Student';
   document.getElementById('userAvatar').textContent = (user.name || 'S').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();

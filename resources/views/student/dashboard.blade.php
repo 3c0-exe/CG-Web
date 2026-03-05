@@ -145,7 +145,7 @@
     window.location.href = '/login';
   }
 
-  axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
+
 
   // Set user info in sidebar
   document.getElementById('userName').textContent = user.name || 'Student';
