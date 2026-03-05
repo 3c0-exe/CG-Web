@@ -89,7 +89,7 @@
         <div style="display:flex; flex-direction:column; gap:12px;">
           <a href="{{ url('/admin/users') }}" class="btn btn-primary" style="justify-content:center;">👥 Manage Users</a>
           <button class="btn btn-ghost" style="justify-content:center;" onclick="openAddSubject()">📚 Add Subject</button>
-          <button class="btn btn-ghost" style="justify-content:center;" onclick="alert('Add Professor – use User Management')">👨‍🏫 Add Professor</button>
+          <button class="btn btn-ghost" style="justify-content:center;" onclick="window.location.href='{{ url('/admin/users') }}'">👨‍🏫 Add Professor</button>
         </div>
 
         <div style="margin-top:24px;">

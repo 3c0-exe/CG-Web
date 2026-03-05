@@ -27,12 +27,6 @@
     .btn-submit { width: 100%; padding: 12px; background: var(--navy-blue); color: var(--white); border: none; border-radius: 7px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-top: 8px; }
     .btn-submit:hover { background: var(--navy-dark); }
     .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-    .role-select { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
-    .role-option { display: none; }
-    .role-label { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px; border: 1.5px solid var(--gray-200); border-radius: 7px; cursor: pointer; font-size: 12px; font-weight: 500; color: var(--gray-500); transition: all 0.15s; }
-    .role-label:hover { border-color: var(--navy-blue); color: var(--navy-blue); }
-    .role-option:checked + .role-label { border-color: var(--navy-blue); background: rgba(30,58,138,0.06); color: var(--navy-blue); }
-    .role-icon { font-size: 20px; }
     .auth-footer { text-align: center; margin-top: 20px; }
     .auth-footer a { font-size: 13px; color: var(--navy-blue); text-decoration: none; }
     .error-msg { display: none; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: var(--red); font-size: 13px; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
@@ -51,24 +45,6 @@
       <p>Sign in to your account to continue</p>
 
       <div class="error-msg" id="errorMsg"></div>
-
-      <div class="form-group">
-        <div style="margin-bottom: 8px; font-size: 13px; font-weight: 500; color: #374151;">Sign in as</div>
-        <div class="role-select">
-          <div>
-            <input type="radio" name="role" id="role-student" class="role-option" value="student" checked>
-            <label for="role-student" class="role-label"><span class="role-icon">🎓</span>Student</label>
-          </div>
-          <div>
-            <input type="radio" name="role" id="role-prof" class="role-option" value="professor">
-            <label for="role-prof" class="role-label"><span class="role-icon">👨‍🏫</span>Professor</label>
-          </div>
-          <div>
-            <input type="radio" name="role" id="role-admin" class="role-option" value="admin">
-            <label for="role-admin" class="role-label"><span class="role-icon">🛡️</span>Admin</label>
-          </div>
-        </div>
-      </div>
 
       <div class="form-group">
         <label class="form-label">Email address</label>
