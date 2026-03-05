@@ -87,7 +87,7 @@
         <div class="section-header"><h2 class="section-title">Quick Actions</h2></div>
         <div style="display:flex; flex-direction:column; gap:12px;">
           <a href="{{ url('/admin/users') }}" class="btn btn-primary" style="justify-content:center;">👥 Manage Users</a>
-          <button class="btn btn-ghost" style="justify-content:center;" onclick="alert('Add Subject – coming soon')">📚 Add Subject</button>
+          <button class="btn btn-ghost" style="justify-content:center;" onclick="openAddSubject()">📚 Add Subject</button>
           <button class="btn btn-ghost" style="justify-content:center;" onclick="alert('Add Professor – use User Management')">👨‍🏫 Add Professor</button>
         </div>
 
@@ -99,6 +99,58 @@
     </div>
   </div>
 </main>
+
+<!-- Add Subject Modal -->
+<div id="subjectModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">📚 Add New Subject</h3>
+    <div id="subjectError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+    <div class="form-group">
+      <label class="form-label">Subject Name</label>
+      <input type="text" class="form-input" id="subjName" placeholder="e.g. Introduction to Computing">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Subject Code</label>
+      <input type="text" class="form-input" id="subjCode" placeholder="e.g. ITC001">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Year Level</label>
+      <select class="form-select" id="subjYearLevel" onchange="loadSections(this.value)">
+        <option value="">Select year level...</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Section</label>
+      <select class="form-select" id="subjSection">
+        <option value="">Select section...</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Professor</label>
+      <select class="form-select" id="subjProfessor">
+        <option value="">Select professor...</option>
+      </select>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-group">
+        <label class="form-label">Late Threshold (minutes)</label>
+        <input type="number" class="form-input" id="subjLateThreshold" value="15" min="1" max="60">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Allow Guest Students</label>
+        <select class="form-select" id="subjAllowGuests">
+          <option value="1">Yes</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('subjectModal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="saveSubjBtn" onclick="saveSubject()">Create Subject</button>
+    </div>
+  </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -171,6 +223,90 @@
       await axios.patch(`/api/admin/users/${id}/status`, { status: 'inactive' });
       document.getElementById('pending-' + id)?.remove();
     } catch (e) { alert('Failed to reject user.'); }
+  }
+
+
+  let yearLevelsData = [];
+  let professorsData = [];
+
+  async function openAddSubject() {
+    document.getElementById('subjectModal').style.display = 'flex';
+    document.getElementById('subjectError').style.display = 'none';
+    document.getElementById('subjName').value = '';
+    document.getElementById('subjCode').value = '';
+    document.getElementById('subjLateThreshold').value = '15';
+
+    // Load year levels and professors
+    try {
+      const [ylRes, profRes] = await Promise.all([
+        axios.get('/api/admin/year-levels'),
+        axios.get('/api/admin/users?role=professor'),
+      ]);
+      yearLevelsData = ylRes.data.year_levels;
+      professorsData = profRes.data.users;
+
+      // Populate year levels
+      document.getElementById('subjYearLevel').innerHTML =
+        '<option value="">Select year level...</option>' +
+        yearLevelsData.map(yl => `<option value="${yl.id}">${yl.name}</option>`).join('');
+
+      // Populate professors
+      document.getElementById('subjProfessor').innerHTML =
+        '<option value="">Select professor...</option>' +
+        professorsData.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+
+      document.getElementById('subjSection').innerHTML = '<option value="">Select year level first...</option>';
+    } catch (e) {
+      console.error('Failed to load form data', e);
+    }
+  }
+
+  function loadSections(yearLevelId) {
+    const yl = yearLevelsData.find(y => y.id == yearLevelId);
+    if (!yl || !yl.sections) {
+      document.getElementById('subjSection').innerHTML = '<option value="">No sections found</option>';
+      return;
+    }
+    document.getElementById('subjSection').innerHTML =
+      '<option value="">Select section...</option>' +
+      yl.sections.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  }
+
+  async function saveSubject() {
+    const btn = document.getElementById('saveSubjBtn');
+    const errEl = document.getElementById('subjectError');
+    const name = document.getElementById('subjName').value.trim();
+    const code = document.getElementById('subjCode').value.trim();
+    const yearLevelId = document.getElementById('subjYearLevel').value;
+    const sectionId = document.getElementById('subjSection').value;
+    const professorId = document.getElementById('subjProfessor').value;
+    const lateThreshold = document.getElementById('subjLateThreshold').value;
+    const allowGuests = document.getElementById('subjAllowGuests').value;
+
+    if (!name || !code || !yearLevelId || !sectionId || !professorId) {
+      errEl.textContent = '❌ Please fill in all required fields.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Creating...'; errEl.style.display = 'none';
+    try {
+      await axios.post('/api/admin/subjects', {
+        name, code,
+        year_level_id: yearLevelId,
+        section_id: sectionId,
+        professor_id: professorId,
+        late_threshold_minutes: lateThreshold,
+        allow_guests: allowGuests == '1',
+      });
+      document.getElementById('subjectModal').style.display = 'none';
+      loadDashboard();
+      alert('✅ Subject created successfully!');
+    } catch (e) {
+      const errors = e.response?.data?.errors;
+      errEl.textContent = '❌ ' + (errors ? Object.values(errors)[0][0] : e.response?.data?.message || 'Failed to create subject.');
+      errEl.style.display = 'block';
+    } finally { btn.disabled = false; btn.textContent = 'Create Subject'; }
   }
 
   function logout() { axios.post('/api/logout').finally(() => { localStorage.clear(); window.location.href = '/login'; }); }
