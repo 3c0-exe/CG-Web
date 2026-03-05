@@ -100,4 +100,52 @@ class AdminController extends Controller
     {
         return response()->json(['success' => true, 'year_levels' => YearLevel::with('sections')->get()]);
     }
+
+    // ─── Section Management ───────────────────────────────────────────────────
+
+    public function createSection(Request $request)
+    {
+        $request->validate([
+            'year_level_id' => 'required|exists:year_levels,id',
+            'name'          => 'required|string',
+        ]);
+
+        $exists = Section::where('year_level_id', $request->year_level_id)
+            ->where('name', strtoupper($request->name))
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['success' => false, 'message' => 'Section already exists'], 400);
+        }
+
+        $section = Section::create([
+            'year_level_id' => $request->year_level_id,
+            'name'          => strtoupper($request->name),
+        ]);
+
+        return response()->json(['success' => true, 'section' => $section], 201);
+    }
+
+    public function updateSection(Request $request, $sectionId)
+    {
+        $request->validate([
+            'year_level_id' => 'required|exists:year_levels,id',
+            'name'          => 'required|string',
+        ]);
+
+        $section = Section::findOrFail($sectionId);
+        $section->update([
+            'year_level_id' => $request->year_level_id,
+            'name'          => strtoupper($request->name),
+        ]);
+
+        return response()->json(['success' => true, 'section' => $section]);
+    }
+
+    public function deleteSection($sectionId)
+    {
+        $section = Section::findOrFail($sectionId);
+        $section->delete();
+        return response()->json(['success' => true, 'message' => 'Section deleted']);
+    }
 }

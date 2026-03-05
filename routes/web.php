@@ -22,3 +22,4 @@ Route::get('/professor/history', fn() => view('professor.history'));
 // Admin
 Route::get('/admin/dashboard', fn() => view('admin.dashboard'));
 Route::get('/admin/users', fn() => view('admin.users'));
+Route::get('/admin/sections', fn() => view('admin.sections'));

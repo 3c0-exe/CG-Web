@@ -1,0 +1,50 @@
+<!-- Add Subject Modal -->
+<div id="subjectModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">📚 Add New Subject</h3>
+    <div id="subjectError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+    <div class="form-group">
+      <label class="form-label">Subject Name</label>
+      <input type="text" class="form-input" id="subjName" placeholder="e.g. Introduction to Computing">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Subject Code</label>
+      <input type="text" class="form-input" id="subjCode" placeholder="e.g. ITC001">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Year Level</label>
+      <select class="form-select" id="subjYearLevel" onchange="loadSections(this.value)">
+        <option value="">Select year level...</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Section</label>
+      <select class="form-select" id="subjSection">
+        <option value="">Select section...</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Professor</label>
+      <select class="form-select" id="subjProfessor">
+        <option value="">Select professor...</option>
+      </select>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-group">
+        <label class="form-label">Late Threshold (minutes)</label>
+        <input type="number" class="form-input" id="subjLateThreshold" value="15" min="1" max="60">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Allow Guest Students</label>
+        <select class="form-select" id="subjAllowGuests">
+          <option value="1">Yes</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('subjectModal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="saveSubjBtn" onclick="saveSubject()">Create Subject</button>
+    </div>
+  </div>
+</div>

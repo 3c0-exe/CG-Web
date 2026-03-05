@@ -51,5 +51,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/subjects', [AdminController::class, 'allSubjects']);
         Route::post('/subjects', [AdminController::class, 'createSubject']);
         Route::get('/year-levels', [AdminController::class, 'yearLevels']);
+
+        // Sections
+        Route::post('/sections', [AdminController::class, 'createSection']);
+        Route::patch('/sections/{sectionId}', [AdminController::class, 'updateSection']);
+        Route::delete('/sections/{sectionId}', [AdminController::class, 'deleteSection']);
     });
 });
