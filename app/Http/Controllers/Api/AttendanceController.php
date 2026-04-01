@@ -19,6 +19,7 @@ class AttendanceController extends Controller
 
         $session = ClassSession::where('session_id', $request->session_id)
             ->where('status', 'active')
+            ->with('subject')
             ->first();
 
         if (!$session) {
@@ -40,24 +41,32 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Already scanned', 'record' => $existing], 400);
         }
 
+        // Determine present or late immediately
+        $threshold = $session->subject->late_threshold_minutes ?? 15;
+        $minutesLate = now()->diffInMinutes($session->started_at);
+        $status = $minutesLate > $threshold ? 'late' : 'present';
+
         $record = AttendanceRecord::create([
-            'session_id'      => $session->id,
-            'student_id'      => $student->id,
-            'rfid_uid'        => strtoupper($request->uid),
-            'rfid_scanned_at' => now(),
-            'status'          => 'pending',
-            'attendance_type' => 'regular',
+            'session_id'        => $session->id,
+            'student_id'        => $student->id,
+            'rfid_uid'          => strtoupper($request->uid),
+            'rfid_scanned_at'   => now(),
+            'code_confirmed_at' => now(),
+            'status'            => $status,
+            'attendance_type'   => 'regular',
         ]);
 
         return response()->json([
             'success' => true,
             'record'  => $record,
             'student' => $student->only('id', 'name', 'student_id_number'),
+            'status'  => $status,
         ]);
     }
 
     public function confirmCode(Request $request)
     {
+        // Kept for backward compatibility but no longer needed in normal flow
         $request->validate([
             'record_id'  => 'required|exists:attendance_records,id',
             'class_code' => 'required|string',
@@ -70,8 +79,9 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid class code'], 400);
         }
 
+        $threshold   = $session->subject->late_threshold_minutes ?? 15;
         $minutesLate = now()->diffInMinutes($session->started_at);
-        $status      = $minutesLate > $session->subject->late_threshold_minutes ? 'late' : 'present';
+        $status      = $minutesLate > $threshold ? 'late' : 'present';
 
         $record->update([
             'code_confirmed_at' => now(),

@@ -49,9 +49,10 @@ class MqttListener extends Command
 
             $this->info("Card scanned: {$uid} for session {$sessionId}");
 
-            // Find active session
+            // Find active session (load subject relationship for late threshold)
             $session = ClassSession::where('session_id', $sessionId)
                 ->where('status', 'active')
+                ->with('subject')
                 ->first();
 
             if (!$session) {
@@ -77,17 +78,23 @@ class MqttListener extends Command
                 return;
             }
 
-            // Create attendance record
+            // ✨ DETERMINE STATUS IMMEDIATELY (just like scanCard does)
+            $threshold = $session->subject->late_threshold_minutes ?? 15;
+            $minutesLate = now()->diffInMinutes($session->started_at);
+            $status = $minutesLate > $threshold ? 'late' : 'present';
+
+            // Create attendance record with calculated status
             AttendanceRecord::create([
-                'session_id'      => $session->id,
-                'student_id'      => $student->id,
-                'rfid_uid'        => $uid,
-                'rfid_scanned_at' => now(),
-                'status'          => 'pending',
-                'attendance_type' => 'regular',
+                'session_id'        => $session->id,
+                'student_id'        => $student->id,
+                'rfid_uid'          => $uid,
+                'rfid_scanned_at'   => now(),
+                'code_confirmed_at' => now(), // ✨ Set this immediately too
+                'status'            => $status, // ✨ 'present' or 'late', NOT 'pending'
+                'attendance_type'   => 'regular',
             ]);
 
-            $this->info("✅ Recorded attendance for: {$student->name}");
+            $this->info("✅ Recorded attendance for: {$student->name} - Status: {$status}");
 
         }, 0);
 

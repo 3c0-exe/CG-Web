@@ -9,9 +9,7 @@
     <a href="{{ url('/admin/users') }}" class="nav-item"><span class="nav-icon">👥</span><span>User Management</span></a>
     <a href="{{ url('/admin/sections') }}" class="nav-item"><span class="nav-icon">🏫</span><span>Sections</span></a>
     <div class="nav-divider"></div>
-    <div class="nav-section">System</div>
-    <a href="#" class="nav-item"><span class="nav-icon">⚙️</span><span>Settings</span></a>
-    <div class="nav-divider"></div>
+
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
   </nav>
   <div class="user-section">

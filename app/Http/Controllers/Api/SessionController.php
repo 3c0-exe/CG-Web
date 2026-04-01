@@ -9,6 +9,7 @@ use App\Models\AttendanceRecord;
 use App\Models\Subject;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use App\Services\MqttService;
 
 class SessionController extends Controller
 {
@@ -27,16 +28,19 @@ class SessionController extends Controller
         }
 
         $session = ClassSession::create([
-            'session_id'  => strtoupper(Str::random(8)),
-            'subject_id'  => $request->subject_id,
-            'professor_id'=> $request->user()->id,
-            'started_at'  => now(),
-            'status'      => 'active',
+            'session_id'   => strtoupper(Str::random(8)),
+            'subject_id'   => $request->subject_id,
+            'professor_id' => $request->user()->id,
+            'started_at'   => now(),
+            'status'       => 'active',
         ]);
+
+        $session->load('subject.section');
+        app(MqttService::class)->sessionStart($session);
 
         return response()->json([
             'success' => true,
-            'session' => $session->load('subject'),
+            'session' => $session,
         ]);
     }
 
@@ -67,6 +71,8 @@ class SessionController extends Controller
             'late_count'    => $late,
             'absent_count'  => $absent,
         ]);
+
+        app(MqttService::class)->sessionEnd($session);
 
         return response()->json(['success' => true, 'session' => $session]);
     }

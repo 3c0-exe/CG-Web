@@ -41,7 +41,7 @@
 
   <div class="content">
     <!-- RFID Alert (shown if no card linked) -->
-    <div id="rfidAlert" style="display:none; background: rgba(252,211,77,0.1); border: 1px solid rgba(252,211,77,0.4); border-radius: 8px; padding: 14px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px;">
+    <div id="rfidAlert" style="display:none; background: rgba(252,211,77,0.1); border: 1px solid rgba(252,211,77,0.4); border-radius: 8px; padding: 14px 20px; margin-bottom: 24px; align-items: center; justify-content: space-between; gap: 16px;">
       <div style="display:flex; align-items:center; gap:12px;">
         <span style="font-size:20px;">🔗</span>
         <div>
