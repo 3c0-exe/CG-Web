@@ -18,8 +18,10 @@ Route::get('/professor/dashboard', fn() => view('professor.dashboard'));
 Route::get('/professor/subjects', fn() => view('professor.subjects'));
 Route::get('/professor/live-attendance', fn() => view('professor.live-attendance'));
 Route::get('/professor/history', fn() => view('professor.history'));
+Route::get('/professor/students', fn() => view('professor.students'));
 
 // Admin
 Route::get('/admin/dashboard', fn() => view('admin.dashboard'));
 Route::get('/admin/users', fn() => view('admin.users'));
 Route::get('/admin/sections', fn() => view('admin.sections'));
+Route::get('/admin/subjects', fn() => view('admin.subjects'));

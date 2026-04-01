@@ -43,14 +43,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/attendance/live/{sessionId}', [AttendanceController::class, 'liveFeed']);
     Route::get('/attendance/my', [AttendanceController::class, 'myAttendance']);
 
-    // Admin only
+    // Professor routes
+    Route::get('/professor/students', [AdminController::class, 'professorStudents']);
+
+    // Admin routes
     Route::prefix('admin')->group(function () {
         Route::get('/stats', [AdminController::class, 'stats']);
         Route::get('/users', [AdminController::class, 'allUsers']);
         Route::post('/users/professor', [AdminController::class, 'createProfessor']);
         Route::patch('/users/{userId}/status', [AdminController::class, 'updateUserStatus']);
+
+        // Subjects
         Route::get('/subjects', [AdminController::class, 'allSubjects']);
         Route::post('/subjects', [AdminController::class, 'createSubject']);
+        Route::patch('/subjects/{subjectId}', [AdminController::class, 'updateSubject']);
+        Route::delete('/subjects/{subjectId}', [AdminController::class, 'deleteSubject']);
+
         Route::get('/year-levels', [AdminController::class, 'yearLevels']);
 
         // Sections

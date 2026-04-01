@@ -18,6 +18,7 @@
     <a href="{{ url('/professor/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>My Subjects</span></a>
     <a href="{{ url('/professor/live-attendance') }}" class="nav-item active"><span class="nav-icon">📡</span><span>Live Attendance</span></a>
     <a href="{{ url('/professor/history') }}" class="nav-item"><span class="nav-icon">📋</span><span>Session History</span></a>
+    <a href="{{ url('/professor/students') }}" class="nav-item"><span class="nav-icon">👥</span><span>My Students</span></a>
     <div class="nav-divider"></div>
     <div class="nav-section">Account</div>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
@@ -142,14 +143,12 @@
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'professor') { localStorage.clear(); window.location.href = '/login'; }
 
-
   document.getElementById('userName').textContent = user.name || 'Professor';
   document.getElementById('userAvatar').textContent = (user.name || 'P').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
 
   const urlParams = new URLSearchParams(window.location.search);
   const sessionId = urlParams.get('session');
   let sessionData = null;
-  let startTime = null;
   let timerInterval = null;
   let pollInterval = null;
 
@@ -241,7 +240,6 @@
     loadLiveFeed();
     pollInterval = setInterval(loadLiveFeed, 3000);
   } else {
-    // Check if there's any active session
     axios.get('/api/session/active').then(res => {
       if (res.data.sessions.length > 0) {
         window.location.href = '/professor/live-attendance?session=' + res.data.sessions[0].session_id;

@@ -11,7 +11,7 @@
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy-blue) 100%); display: flex; align-items: flex-start; justify-content: center; padding: 32px 24px; }
     .auth-container { width: 100%; max-width: 500px; }
     .auth-brand { text-align: center; margin-bottom: 28px; }
-    .brand-icon { width: 48px; height: 48px; background: var(--gold); border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; color: var(--navy-dark); margin-bottom: 10px; }
+    .brand-logo { width: 72px; height: 72px; margin: 0 auto 10px auto; display: block; object-fit: contain; }
     .brand-name { font-size: 20px; font-weight: 600; color: var(--white); }
     .auth-card { background: var(--white); border-radius: 12px; padding: 36px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
     .auth-card h2 { font-size: 22px; font-weight: 700; color: var(--gray-900); margin-bottom: 6px; }
@@ -52,7 +52,7 @@
 <body>
   <div class="auth-container">
     <div class="auth-brand">
-      <div class="brand-icon">C</div>
+      <img src="{{ asset('images/blue-gold-cg.jpg') }}" alt="ClassGuard Logo" class="brand-logo">
       <div class="brand-name">ClassGuard</div>
     </div>
 
@@ -156,7 +156,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
   <script>
-    // Load year levels and sections from API
     async function loadYearLevels() {
       try {
         const res = await axios.get('/api/year-levels');
@@ -165,7 +164,6 @@
           select.innerHTML += `<option value="${yl.id}">${yl.name}</option>`;
         });
       } catch (e) {
-        // fallback static options if not logged in
         ['1st Year','2nd Year','3rd Year','4th Year'].forEach((y, i) => {
           document.getElementById('yearLevel').innerHTML += `<option value="${i+1}">${y}</option>`;
         });

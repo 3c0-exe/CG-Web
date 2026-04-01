@@ -9,6 +9,7 @@
     <a href="{{ url('/professor/subjects') }}" class="nav-item active"><span class="nav-icon">📚</span><span>My Subjects</span></a>
     <a href="{{ url('/professor/live-attendance') }}" class="nav-item"><span class="nav-icon">📡</span><span>Live Attendance</span></a>
     <a href="{{ url('/professor/history') }}" class="nav-item"><span class="nav-icon">📋</span><span>Session History</span></a>
+    <a href="{{ url('/professor/students') }}" class="nav-item"><span class="nav-icon">👥</span><span>My Students</span></a>
     <div class="nav-divider"></div>
     <div class="nav-section">Account</div>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
@@ -65,7 +66,6 @@
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'professor') { localStorage.clear(); window.location.href = '/login'; }
 
-
   document.getElementById('userName').textContent = user.name || 'Professor';
   document.getElementById('userAvatar').textContent = (user.name || 'P').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
 
@@ -116,7 +116,8 @@
                   : `<button class="btn btn-primary btn-sm" onclick="startSession(${s.id})">▶ Start Session</button>`
                 }
                 <a href="{{ url('/professor/history') }}" class="btn btn-ghost btn-sm">📋 History</a>
-                <button class="btn btn-ghost btn-sm" onclick="openSettings(${s.id}, '${s.name}', ${s.late_threshold_minutes}, ${s.allow_guests ? 1 : 0})">⚙️ Settings</button>
+                <a href="{{ url('/professor/students') }}?subject=${s.id}" class="btn btn-ghost btn-sm">👥 Students</a>
+                <button class="btn btn-ghost btn-sm" onclick="openSettings(${s.id}, '${s.name.replace(/'/g,"\\'")}', ${s.late_threshold_minutes}, ${s.allow_guests ? 1 : 0})">⚙️ Settings</button>
               </div>
             </div>
           </div>`;

@@ -8,8 +8,8 @@
     <a href="{{ url('/admin/dashboard') }}" class="nav-item active"><span class="nav-icon">📊</span><span>Dashboard</span></a>
     <a href="{{ url('/admin/users') }}" class="nav-item"><span class="nav-icon">👥</span><span>User Management</span></a>
     <a href="{{ url('/admin/sections') }}" class="nav-item"><span class="nav-icon">🏫</span><span>Sections</span></a>
+    <a href="{{ url('/admin/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>Subjects</span></a>
     <div class="nav-divider"></div>
-
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
   </nav>
   <div class="user-section">
@@ -28,7 +28,6 @@
     </div>
     <div class="topbar-right">
       <button class="btn btn-primary" onclick="window.location.href='{{ url('/admin/users') }}'">+ Add User</button>
-      <button class="icon-btn notif-dot">🔔</button>
     </div>
   </div>
 
@@ -86,7 +85,8 @@
         <div class="section-header"><h2 class="section-title">Quick Actions</h2></div>
         <div style="display:flex; flex-direction:column; gap:12px;">
           <a href="{{ url('/admin/users') }}" class="btn btn-primary" style="justify-content:center;">👥 Manage Users</a>
-          <button class="btn btn-ghost" style="justify-content:center;" onclick="openAddSubject()">📚 Add Subject</button>
+          <a href="{{ url('/admin/subjects') }}" class="btn btn-ghost" style="justify-content:center;">📚 Manage Subjects</a>
+          <button class="btn btn-ghost" style="justify-content:center;" onclick="openAddSubject()">➕ Add Subject</button>
           <button class="btn btn-ghost" style="justify-content:center;" onclick="window.location.href='{{ url('/admin/users') }}'">👨‍🏫 Add Professor</button>
         </div>
 
@@ -158,7 +158,6 @@
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'admin') { localStorage.clear(); window.location.href = '/login'; }
 
-
   document.getElementById('topbarSubtitle').textContent = 'System overview · ' + new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
 
   async function loadDashboard() {
@@ -181,7 +180,6 @@
         <div>📡 Active sessions: <strong>${stats.active_sessions}</strong></div>
         <div>⏳ Pending approvals: <strong>${stats.pending_users}</strong></div>`;
 
-      // Pending users
       const pendingUsers = usersRes.data.users.filter(u => u.status === 'pending').slice(0, 5);
       if (pendingUsers.length === 0) {
         document.getElementById('pendingList').innerHTML = '<div style="text-align:center; padding:24px; color:var(--gray-400);">No pending approvals.</div>';
@@ -224,7 +222,6 @@
     } catch (e) { alert('Failed to reject user.'); }
   }
 
-
   let yearLevelsData = [];
   let professorsData = [];
 
@@ -234,8 +231,6 @@
     document.getElementById('subjName').value = '';
     document.getElementById('subjCode').value = '';
     document.getElementById('subjLateThreshold').value = '15';
-
-    // Load year levels and professors
     try {
       const [ylRes, profRes] = await Promise.all([
         axios.get('/api/admin/year-levels'),
@@ -243,21 +238,14 @@
       ]);
       yearLevelsData = ylRes.data.year_levels;
       professorsData = profRes.data.users;
-
-      // Populate year levels
       document.getElementById('subjYearLevel').innerHTML =
         '<option value="">Select year level...</option>' +
         yearLevelsData.map(yl => `<option value="${yl.id}">${yl.name}</option>`).join('');
-
-      // Populate professors
       document.getElementById('subjProfessor').innerHTML =
         '<option value="">Select professor...</option>' +
         professorsData.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-
       document.getElementById('subjSection').innerHTML = '<option value="">Select year level first...</option>';
-    } catch (e) {
-      console.error('Failed to load form data', e);
-    }
+    } catch (e) { console.error('Failed to load form data', e); }
   }
 
   function loadSections(yearLevelId) {

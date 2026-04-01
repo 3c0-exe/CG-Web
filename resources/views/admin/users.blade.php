@@ -7,9 +7,8 @@
   <nav>
     <a href="{{ url('/admin/dashboard') }}" class="nav-item"><span class="nav-icon">📊</span><span>Dashboard</span></a>
     <a href="{{ url('/admin/users') }}" class="nav-item active"><span class="nav-icon">👥</span><span>User Management</span></a>
-    <div class="nav-divider"></div>
-    <div class="nav-section">System</div>
-    <a href="#" class="nav-item"><span class="nav-icon">⚙️</span><span>Settings</span></a>
+    <a href="{{ url('/admin/sections') }}" class="nav-item"><span class="nav-icon">🏫</span><span>Sections</span></a>
+    <a href="{{ url('/admin/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>Subjects</span></a>
     <div class="nav-divider"></div>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
   </nav>
@@ -104,7 +103,6 @@
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'admin') { localStorage.clear(); window.location.href = '/login'; }
 
-
   let allUsers = [];
   let currentTab = 'all';
 
@@ -145,7 +143,7 @@
           <td>
             <div style="display:flex; gap:4px;">
               ${u.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="updateStatus(${u.id}, 'active')">✓ Approve</button>` : ''}
-              ${u.status === 'active' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="updateStatus(${u.id}, 'inactive')">Suspend</button>` : ''}
+              ${u.status === 'active' && u.role !== 'admin' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="updateStatus(${u.id}, 'inactive')">Suspend</button>` : ''}
               ${u.status === 'inactive' ? `<button class="btn btn-ghost btn-sm" onclick="updateStatus(${u.id}, 'active')">Activate</button>` : ''}
             </div>
           </td>

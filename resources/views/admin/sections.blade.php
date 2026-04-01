@@ -8,8 +8,8 @@
     <a href="{{ url('/admin/dashboard') }}" class="nav-item"><span class="nav-icon">📊</span><span>Dashboard</span></a>
     <a href="{{ url('/admin/users') }}" class="nav-item"><span class="nav-icon">👥</span><span>User Management</span></a>
     <a href="{{ url('/admin/sections') }}" class="nav-item active"><span class="nav-icon">🏫</span><span>Sections</span></a>
+    <a href="{{ url('/admin/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>Subjects</span></a>
     <div class="nav-divider"></div>
-    <div class="nav-section">System</div>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
   </nav>
   <div class="user-section">
@@ -108,7 +108,6 @@
       document.getElementById('sectionsGrid').innerHTML = '<div style="text-align:center; padding:40px; color:var(--gray-400);">No data found.</div>';
       return;
     }
-
     document.getElementById('sectionsGrid').innerHTML = yearLevels.map(yl => `
       <div class="section">
         <div class="section-header">
@@ -164,13 +163,11 @@
     const errEl = document.getElementById('addError');
     const yearLevelId = document.getElementById('addYearLevel').value;
     const name = document.getElementById('addSectionName').value.trim();
-
     if (!yearLevelId || !name) {
       errEl.textContent = '❌ Please fill in all fields.';
       errEl.style.display = 'block';
       return;
     }
-
     btn.disabled = true; btn.textContent = 'Adding...'; errEl.style.display = 'none';
     try {
       await axios.post('/api/admin/sections', { year_level_id: yearLevelId, name });
@@ -197,13 +194,11 @@
     const id = document.getElementById('editSectionId').value;
     const yearLevelId = document.getElementById('editYearLevel').value;
     const name = document.getElementById('editSectionName').value.trim();
-
     if (!yearLevelId || !name) {
       errEl.textContent = '❌ Please fill in all fields.';
       errEl.style.display = 'block';
       return;
     }
-
     btn.disabled = true; btn.textContent = 'Saving...'; errEl.style.display = 'none';
     try {
       await axios.patch(`/api/admin/sections/${id}`, { year_level_id: yearLevelId, name });

@@ -9,6 +9,7 @@
     <a href="{{ url('/professor/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>My Subjects</span></a>
     <a href="{{ url('/professor/live-attendance') }}" class="nav-item"><span class="nav-icon">📡</span><span>Live Attendance</span></a>
     <a href="{{ url('/professor/history') }}" class="nav-item active"><span class="nav-icon">📋</span><span>Session History</span></a>
+    <a href="{{ url('/professor/students') }}" class="nav-item"><span class="nav-icon">👥</span><span>My Students</span></a>
     <div class="nav-divider"></div>
     <div class="nav-section">Account</div>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
@@ -50,7 +51,7 @@
               <th>Present</th>
               <th>Late</th>
               <th>Absent</th>
-              <th>Status</th>
+              <th>Attendance Rate</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -69,7 +70,6 @@
   // token is declared in layouts/app.blade.php
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'professor') { localStorage.clear(); window.location.href = '/login'; }
-
 
   document.getElementById('userName').textContent = user.name || 'Professor';
   document.getElementById('userAvatar').textContent = (user.name || 'P').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();

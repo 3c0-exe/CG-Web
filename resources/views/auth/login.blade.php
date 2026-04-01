@@ -11,7 +11,7 @@
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy-blue) 100%); display: flex; align-items: center; justify-content: center; padding: 24px; }
     .auth-container { width: 100%; max-width: 440px; }
     .auth-brand { text-align: center; margin-bottom: 32px; }
-    .brand-icon { width: 56px; height: 56px; background: var(--gold); border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; color: var(--navy-dark); margin-bottom: 12px; box-shadow: 0 8px 24px rgba(252,211,77,0.3); }
+    .brand-logo { width: 80px; height: 80px; margin: 0 auto 12px auto; display: block; object-fit: contain; }
     .brand-name { font-size: 22px; font-weight: 600; color: var(--white); }
     .brand-tagline { font-size: 13px; color: rgba(255,255,255,0.5); margin-top: 4px; }
     .auth-card { background: var(--white); border-radius: 12px; padding: 36px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
@@ -35,7 +35,7 @@
 <body>
   <div class="auth-container">
     <div class="auth-brand">
-      <div class="brand-icon">C</div>
+      <img src="{{ asset('images/blue-gold-cg.jpg') }}" alt="ClassGuard Logo" class="brand-logo">
       <div class="brand-name">ClassGuard</div>
       <div class="brand-tagline">RFID Attendance Management System</div>
     </div>
@@ -107,7 +107,6 @@
 
     document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
 
-    // Redirect if already logged in
     if (localStorage.getItem('token')) {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       if (user.role === 'admin') window.location.href = '/admin/dashboard';
@@ -116,4 +115,4 @@
     }
   </script>
 </body>
-</html>
+</html>r

@@ -9,6 +9,7 @@
     <a href="{{ url('/professor/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>My Subjects</span></a>
     <a href="{{ url('/professor/live-attendance') }}" class="nav-item"><span class="nav-icon">📡</span><span>Live Attendance</span></a>
     <a href="{{ url('/professor/history') }}" class="nav-item"><span class="nav-icon">📋</span><span>Session History</span></a>
+    <a href="{{ url('/professor/students') }}" class="nav-item"><span class="nav-icon">👥</span><span>My Students</span></a>
     <div class="nav-divider"></div>
     <div class="nav-section">Account</div>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
@@ -29,7 +30,6 @@
     </div>
     <div class="topbar-right">
       <button class="btn btn-primary" onclick="window.location.href='{{ url('/professor/live-attendance') }}'">▶ Start Session</button>
-      <button class="icon-btn notif-dot">🔔</button>
     </div>
   </div>
 
@@ -88,7 +88,6 @@
   const user = JSON.parse(localStorage.getItem('user') || '{}');
   if (!token || user.role !== 'professor') { localStorage.clear(); window.location.href = '/login'; }
 
-
   document.getElementById('userName').textContent = user.name || 'Professor';
   document.getElementById('userAvatar').textContent = (user.name || 'P').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('topbarSubtitle').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }) + ' · Welcome back, ' + (user.name || 'Professor');
@@ -101,7 +100,6 @@
         axios.get('/api/session/history'),
       ]);
 
-      // Filter subjects assigned to this professor
       const mySubjects = subjectsRes.data.subjects.filter(s => s.professor_id === user.id);
       const activeSessions = activeRes.data.sessions;
       const history = historyRes.data.sessions;
@@ -110,7 +108,6 @@
       document.getElementById('activeCount').textContent = activeSessions.length;
       document.getElementById('historyCount').textContent = history.length;
 
-      // Render subjects
       if (mySubjects.length === 0) {
         document.getElementById('subjectsList').innerHTML = '<div style="text-align:center; padding:32px; color:var(--gray-400);">No subjects assigned yet.</div>';
       } else {
@@ -137,7 +134,6 @@
         }).join('');
       }
 
-      // Render active sessions
       if (activeSessions.length === 0) {
         document.getElementById('activeSessions').innerHTML = '<div style="text-align:center; padding:32px; color:var(--gray-400);">No active sessions right now.</div>';
       } else {
