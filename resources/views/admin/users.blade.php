@@ -50,7 +50,6 @@
     <div class="section" style="padding:0; overflow:hidden;">
       <div style="display:flex; border-bottom:1px solid var(--gray-200);">
         <button class="tab-btn" id="tab-all" onclick="setTab('all')" style="padding:16px 24px; border:none; background:none; font-size:14px; font-weight:500; cursor:pointer; border-bottom:2px solid var(--navy-blue); color:var(--navy-blue);">All Users</button>
-        <button class="tab-btn" id="tab-pending" onclick="setTab('pending')" style="padding:16px 24px; border:none; background:none; font-size:14px; font-weight:500; cursor:pointer; border-bottom:2px solid transparent; color:var(--gray-500);">Pending</button>
         <button class="tab-btn" id="tab-students" onclick="setTab('students')" style="padding:16px 24px; border:none; background:none; font-size:14px; font-weight:500; cursor:pointer; border-bottom:2px solid transparent; color:var(--gray-500);">Students</button>
         <button class="tab-btn" id="tab-professors" onclick="setTab('professors')" style="padding:16px 24px; border:none; background:none; font-size:14px; font-weight:500; cursor:pointer; border-bottom:2px solid transparent; color:var(--gray-500);">Professors</button>
       </div>
@@ -167,7 +166,7 @@
         <tr>
           <td>
             <div style="display:flex; align-items:center; gap:10px;">
-              <div style="width:32px; height:32px; border-radius:50%; background:var(--navy-dark); color:var(--gold); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">${initials}</div>
+              <div class="user-avatar" style="background:var(--navy-blue); color:var(--white); font-size:11px;">${initials}</div>
               <div>
                 <div style="font-size:13px; font-weight:600;">${u.name}</div>
                 <div style="font-size:11px; color:var(--gray-500);">${u.email}</div>
@@ -177,12 +176,15 @@
           <td>${roleBadge(u.role)}</td>
           <td style="font-size:13px; font-family:monospace;">${u.student_id_number || '–'}</td>
           <td style="font-size:13px;">${u.section?.name || '–'}</td>
-          <td style="font-size:12px; font-family:monospace; color:${u.rfid_uid ? 'var(--green)' : 'var(--gray-400)'};">${u.rfid_uid || '–'}</td>
+          <td>
+            ${u.rfid_uid
+              ? `<span class="badge success">✓ Linked</span>`
+              : `<span class="badge neutral">Not linked</span>`}
+          </td>
           <td>${statusBadge(u.status)}</td>
           <td>
-            <div style="display:flex; gap:4px;">
-              <button class="btn btn-ghost btn-sm" style="color:var(--navy-blue);" onclick="openEditModal(${u.id})">Edit</button>
-              ${u.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="updateStatus(${u.id}, 'active')">✓ Approve</button>` : ''}
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <button class="btn btn-ghost btn-sm" onclick="openEditModal(${u.id})">✏️ Edit</button>
               ${u.status === 'active' && u.role !== 'admin' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="updateStatus(${u.id}, 'inactive')">Suspend</button>` : ''}
               ${u.status === 'inactive' ? `<button class="btn btn-ghost btn-sm" onclick="updateStatus(${u.id}, 'active')">Activate</button>` : ''}
             </div>
@@ -203,8 +205,7 @@
 
   function renderFiltered() {
     let filtered = allUsers;
-    if (currentTab === 'pending') filtered = allUsers.filter(u => u.status === 'pending');
-    else if (currentTab === 'students') filtered = allUsers.filter(u => u.role === 'student');
+    if (currentTab === 'students') filtered = allUsers.filter(u => u.role === 'student');
     else if (currentTab === 'professors') filtered = allUsers.filter(u => u.role === 'professor');
     renderTable(filtered);
   }
@@ -223,8 +224,7 @@
   function filterSearch(q) {
     const lower = q.toLowerCase();
     let filtered = allUsers;
-    if (currentTab === 'pending') filtered = filtered.filter(u => u.status === 'pending');
-    else if (currentTab === 'students') filtered = filtered.filter(u => u.role === 'student');
+    if (currentTab === 'students') filtered = filtered.filter(u => u.role === 'student');
     else if (currentTab === 'professors') filtered = filtered.filter(u => u.role === 'professor');
     if (q) filtered = filtered.filter(u => u.name?.toLowerCase().includes(lower) || u.email?.toLowerCase().includes(lower) || u.student_id_number?.includes(q));
     renderTable(filtered);
@@ -265,13 +265,13 @@
   }
 
   function openEditModal(userId) {
-    const user = allUsers.find(u => u.id === userId);
-    if (!user) return;
+    const u = allUsers.find(u => u.id === userId);
+    if (!u) return;
 
-    document.getElementById('editUserId').value = user.id;
-    document.getElementById('editName').value = user.name || '';
-    document.getElementById('editStudentId').value = user.student_id_number || '';
-    document.getElementById('editRfid').value = user.rfid_uid || '';
+    document.getElementById('editUserId').value = u.id;
+    document.getElementById('editName').value = u.name || '';
+    document.getElementById('editStudentId').value = u.student_id_number || '';
+    document.getElementById('editRfid').value = u.rfid_uid || '';
     
     document.getElementById('editError').style.display = 'none';
     document.getElementById('editUserModal').style.display = 'flex';
@@ -292,7 +292,7 @@
       });
       
       document.getElementById('editUserModal').style.display = 'none';
-      loadUsers(); // Refresh the table
+      loadUsers();
     } catch (e) {
       errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to update user.');
       errEl.style.display = 'block';
@@ -329,8 +329,8 @@
       statusDiv.style.border = '1px solid rgba(16, 185, 129, 0.3)';
       statusDiv.innerText = '✅ ' + response.data.message;
       
-      fileInput.value = ''; // Reset input
-      loadUsers(); // Instantly refresh the table to show new students!
+      fileInput.value = '';
+      loadUsers();
       
     } catch (error) {
       statusDiv.style.display = 'block';

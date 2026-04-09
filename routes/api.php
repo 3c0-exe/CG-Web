@@ -20,20 +20,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // Global Auth / Utilities
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
-    
-    // RFID Management (If Profs/Admins use cards to log in or start sessions)
+
+    // RFID Management
     Route::post('/rfid/link', [RfidController::class, 'linkCard']);
     Route::post('/rfid/unlink', [RfidController::class, 'unlinkCard']);
 
     // Professor Routes
     Route::prefix('professor')->group(function () {
-        // ADD THIS LINE:
         Route::get('/subjects', [AdminController::class, 'professorSubjects']);
         Route::post('/session/start', [SessionController::class, 'startSession']);
         Route::post('/session/end/{sessionId}', [SessionController::class, 'endSession']);
         Route::get('/session/active', [SessionController::class, 'activeSessions']);
         Route::get('/session/history', [SessionController::class, 'sessionHistory']);
-        
         Route::get('/attendance/live/{sessionId}', [AttendanceController::class, 'liveFeed']);
         Route::get('/students', [AdminController::class, 'professorStudents']);
     });
@@ -41,12 +39,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin Routes
     Route::prefix('admin')->group(function () {
         Route::get('/stats', [AdminController::class, 'stats']);
-        
+
         // User Management
         Route::post('/users/import-students', [AdminController::class, 'importStudentsCsv']);
         Route::get('/users', [AdminController::class, 'allUsers']);
         Route::post('/users/professor', [AdminController::class, 'createProfessor']);
         Route::patch('/users/{userId}/status', [AdminController::class, 'updateUserStatus']);
+        Route::patch('/users/{userId}', [AdminController::class, 'updateUser']); // Fix: was missing
 
         // Subjects
         Route::get('/subjects', [AdminController::class, 'allSubjects']);

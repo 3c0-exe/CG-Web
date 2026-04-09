@@ -32,7 +32,7 @@
   </div>
 
   <div class="content">
-    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);">
+    <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);">
       <div class="stat-card">
         <div class="stat-header">
           <div><div class="stat-label">Total Students</div><div class="stat-value" id="totalStudents">–</div><div class="stat-change info">Registered</div></div>
@@ -51,12 +51,6 @@
           <div class="stat-icon green">📡</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-header">
-          <div><div class="stat-label">Pending Approvals</div><div class="stat-value" id="pendingUsers" style="color:#D97706">–</div><div class="stat-change warning">New registrations</div></div>
-          <div class="stat-icon gold">⏳</div>
-        </div>
-      </div>
     </div>
 
     <div class="stats-grid" style="grid-template-columns:repeat(2,1fr);">
@@ -69,13 +63,13 @@
     </div>
 
     <div class="grid-2">
-      <!-- Pending Approvals -->
+      <!-- Recent Users -->
       <div class="section">
         <div class="section-header">
-          <h2 class="section-title">Pending Approvals</h2>
+          <h2 class="section-title">Recent Students</h2>
           <a href="{{ url('/admin/users') }}" class="btn btn-ghost btn-sm">View All</a>
         </div>
-        <div id="pendingList">
+        <div id="recentStudentsList">
           <div style="text-align:center; padding:32px; color:var(--gray-400);">Loading...</div>
         </div>
       </div>
@@ -171,23 +165,22 @@
       document.getElementById('totalStudents').textContent = stats.total_students;
       document.getElementById('totalProfessors').textContent = stats.total_professors;
       document.getElementById('activeSessions').textContent = stats.active_sessions;
-      document.getElementById('pendingUsers').textContent = stats.pending_users;
       document.getElementById('totalSubjects').textContent = stats.total_subjects;
 
       document.getElementById('systemStats').innerHTML = `
         <div>👥 Total users: <strong>${stats.total_students + stats.total_professors}</strong></div>
         <div>📚 Total subjects: <strong>${stats.total_subjects}</strong></div>
-        <div>📡 Active sessions: <strong>${stats.active_sessions}</strong></div>
-        <div>⏳ Pending approvals: <strong>${stats.pending_users}</strong></div>`;
+        <div>📡 Active sessions: <strong>${stats.active_sessions}</strong></div>`;
 
-      const pendingUsers = usersRes.data.users.filter(u => u.status === 'pending').slice(0, 5);
-      if (pendingUsers.length === 0) {
-        document.getElementById('pendingList').innerHTML = '<div style="text-align:center; padding:24px; color:var(--gray-400);">No pending approvals.</div>';
+      // Show the 5 most recently added students
+      const recentStudents = usersRes.data.users.slice(0, 5);
+      if (recentStudents.length === 0) {
+        document.getElementById('recentStudentsList').innerHTML = '<div style="text-align:center; padding:24px; color:var(--gray-400);">No students imported yet.</div>';
       } else {
-        document.getElementById('pendingList').innerHTML = pendingUsers.map(u => {
+        document.getElementById('recentStudentsList').innerHTML = recentStudents.map(u => {
           const initials = (u.name || 'U').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
           return `
-            <div class="list-item" id="pending-${u.id}">
+            <div class="list-item">
               <div class="list-left">
                 <div class="user-avatar" style="background:var(--navy-blue); color:var(--white);">${initials}</div>
                 <div class="item-details">
@@ -195,31 +188,12 @@
                   <p>Student · ${u.student_id_number || '–'} · ${u.section?.name || '–'}</p>
                 </div>
               </div>
-              <div style="display:flex; gap:6px;">
-                <button class="btn btn-success btn-sm" onclick="approveUser(${u.id})">✓</button>
-                <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="rejectUser(${u.id})">✕</button>
-              </div>
             </div>`;
         }).join('');
       }
     } catch (e) {
       console.error('Admin dashboard error:', e);
     }
-  }
-
-  async function approveUser(id) {
-    try {
-      await axios.patch(`/api/admin/users/${id}/status`, { status: 'active' });
-      document.getElementById('pending-' + id)?.remove();
-    } catch (e) { alert('Failed to approve user.'); }
-  }
-
-  async function rejectUser(id) {
-    if (!confirm('Reject this registration?')) return;
-    try {
-      await axios.patch(`/api/admin/users/${id}/status`, { status: 'inactive' });
-      document.getElementById('pending-' + id)?.remove();
-    } catch (e) { alert('Failed to reject user.'); }
   }
 
   let yearLevelsData = [];

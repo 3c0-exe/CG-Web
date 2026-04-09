@@ -29,7 +29,7 @@
     .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
     .auth-footer { text-align: center; margin-top: 20px; }
     .auth-footer a { font-size: 13px; color: var(--navy-blue); text-decoration: none; }
-    .error-msg { display: none; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: var(--red); font-size: 13px; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
+    .error-msg { display: none; background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: var(--red); font-size:13px; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
   </style>
 </head>
 <body>
@@ -93,7 +93,14 @@
 
         if (user.role === 'admin') window.location.href = '/admin/dashboard';
         else if (user.role === 'professor') window.location.href = '/professor/dashboard';
-        else window.location.href = '/student/dashboard';
+        else {
+          // Should never reach here — AuthController blocks student logins at the API level.
+          errorMsg.textContent = '❌ Access denied.';
+          errorMsg.style.display = 'block';
+          localStorage.clear();
+          btn.disabled = false;
+          btn.textContent = 'Sign In';
+        }
 
       } catch (error) {
         const msg = error.response?.data?.message || 'Invalid email or password.';
@@ -106,12 +113,13 @@
 
     document.addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
 
+    // On page load: redirect already-authenticated users to their dashboard
     if (localStorage.getItem('token')) {
       const user = JSON.parse(localStorage.getItem('user') || '{}');
       if (user.role === 'admin') window.location.href = '/admin/dashboard';
       else if (user.role === 'professor') window.location.href = '/professor/dashboard';
-      else if (user.role === 'student') window.location.href = '/student/dashboard';
+      // No student case — students have no dashboard
     }
   </script>
 </body>
-</html>r
+</html>

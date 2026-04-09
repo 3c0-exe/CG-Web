@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ClassSession;
-use App\Models\Enrollment;
 use App\Models\AttendanceRecord;
 use App\Models\Subject;
 use Illuminate\Http\Request;
@@ -18,6 +17,15 @@ class SessionController extends Controller
         $request->validate([
             'subject_id' => 'required|exists:subjects,id',
         ]);
+
+        // Ensure the professor actually owns the subject they are trying to start
+        $subject = Subject::where('id', $request->subject_id)
+            ->where('professor_id', $request->user()->id)
+            ->first();
+
+        if (!$subject) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized or invalid subject'], 403);
+        }
 
         $existing = ClassSession::where('subject_id', $request->subject_id)
             ->where('status', 'active')
@@ -36,7 +44,10 @@ class SessionController extends Controller
         ]);
 
         $session->load('subject.section');
-        app(MqttService::class)->sessionStart($session);
+        
+        if (class_exists(MqttService::class)) {
+            app(MqttService::class)->sessionStart($session);
+        }
 
         return response()->json([
             'success' => true,
@@ -54,15 +65,17 @@ class SessionController extends Controller
             return response()->json(['success' => false, 'message' => 'Session not found'], 404);
         }
 
-        // Mark all still-pending records as absent
-        AttendanceRecord::where('session_id', $session->id)
-            ->where('status', 'pending')
-            ->update(['status' => 'absent']);
-
-        // Update counts
+        // Because we removed the 'pending' status, we just count Present and Late directly.
+        // We calculate Absents based on the total number of students in the Section.
+        
         $present = AttendanceRecord::where('session_id', $session->id)->where('status', 'present')->count();
         $late    = AttendanceRecord::where('session_id', $session->id)->where('status', 'late')->count();
-        $absent  = AttendanceRecord::where('session_id', $session->id)->where('status', 'absent')->count();
+        
+        $totalStudentsInSection = \App\Models\User::where('role', 'student')
+            ->where('section_id', $session->subject->section_id)
+            ->count();
+            
+        $absent = max(0, $totalStudentsInSection - ($present + $late));
 
         $session->update([
             'ended_at'      => now(),
@@ -72,7 +85,9 @@ class SessionController extends Controller
             'absent_count'  => $absent,
         ]);
 
-        app(MqttService::class)->sessionEnd($session);
+        if (class_exists(MqttService::class)) {
+            app(MqttService::class)->sessionEnd($session);
+        }
 
         return response()->json(['success' => true, 'session' => $session]);
     }
@@ -91,7 +106,7 @@ class SessionController extends Controller
     {
         $sessions = ClassSession::where('professor_id', $request->user()->id)
             ->where('status', 'ended')
-            ->with('subject')
+            ->with('subject.section')
             ->orderBy('ended_at', 'desc')
             ->get();
 

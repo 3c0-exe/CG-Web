@@ -89,7 +89,6 @@ class MqttListener extends Command
                 'student_id'        => $student->id,
                 'rfid_uid'          => $uid,
                 'rfid_scanned_at'   => now(),
-                'code_confirmed_at' => now(), // ✨ Set this immediately too
                 'status'            => $status, // ✨ 'present' or 'late', NOT 'pending'
                 'attendance_type'   => 'regular',
             ]);

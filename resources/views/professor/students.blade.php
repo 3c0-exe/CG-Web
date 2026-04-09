@@ -91,11 +91,10 @@
               <th>Late</th>
               <th>Absent</th>
               <th>Attendance Rate</th>
-              <th>Type</th>
             </tr>
           </thead>
           <tbody id="studentsTable">
-            <tr><td colspan="9" style="text-align:center; padding:40px; color:var(--gray-400);">Select a subject above</td></tr>
+            <tr><td colspan="8" style="text-align:center; padding:40px; color:var(--gray-400);">Select a subject above</td></tr>
           </tbody>
         </table>
       </div>
@@ -122,15 +121,16 @@
   document.getElementById('userAvatar').textContent = (user.name || 'P').split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
 
   let mySubjects = [];
-  let allStudents = [];    // raw enrollment rows for current subject
+  let allStudents = [];
   let sessionCount = 0;
 
   // ─── Init ─────────────────────────────────────────────────────────────────
 
   async function init() {
     try {
-      const res = await axios.get('/api/admin/subjects');
-      mySubjects = res.data.subjects.filter(s => s.professor_id === user.id);
+      // Correct route — backend scopes to the authenticated professor automatically
+      const res = await axios.get('/api/professor/subjects');
+      mySubjects = res.data.subjects;
 
       if (mySubjects.length === 0) {
         document.getElementById('emptyState').innerHTML = `
@@ -142,7 +142,7 @@
 
       document.getElementById('subjectSelect').innerHTML =
         '<option value="">Choose a subject...</option>' +
-        mySubjects.map(s => `<option value="${s.id}">${s.name} (${s.code}) – ${s.section?.name || ''}</option>`).join('');
+        mySubjects.map(s => `<option value="${s.id}">${s.name} – ${s.section?.name || ''}</option>`).join('');
 
       // Auto-select from URL param ?subject=X
       const urlParam = new URLSearchParams(window.location.search).get('subject');
@@ -169,18 +169,16 @@
     const subject = mySubjects.find(s => s.id == subjectId);
     if (!subject) return;
 
-    // Show subject metadata
     document.getElementById('subjectMetaText').textContent =
-      `📚 ${subject.code}  ·  🏫 ${subject.section?.name || '–'}  ·  ⏱ Late: ${subject.late_threshold_minutes} min`;
+      `🏫 ${subject.section?.name || '–'}  ·  ⏱ Late: ${subject.late_threshold_minutes} min`;
     document.getElementById('subjectMeta').style.display = 'block';
     document.getElementById('topbarSubtitle').textContent = subject.name;
 
-    // Show loading state
     document.getElementById('studentsSection').style.display = 'block';
     document.getElementById('emptyState').style.display = 'none';
     document.getElementById('statsRow').style.display = 'none';
     document.getElementById('studentsTable').innerHTML =
-      '<tr><td colspan="9" style="text-align:center; padding:40px; color:var(--gray-400);">Loading students...</td></tr>';
+      '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--gray-400);">Loading students...</td></tr>';
 
     try {
       const res = await axios.get(`/api/professor/students?subject_id=${subjectId}`);
@@ -191,7 +189,7 @@
       document.getElementById('statsRow').style.display = 'block';
     } catch (e) {
       document.getElementById('studentsTable').innerHTML =
-        '<tr><td colspan="9" style="text-align:center; color:var(--red); padding:24px;">Failed to load students.</td></tr>';
+        '<tr><td colspan="8" style="text-align:center; color:var(--red); padding:24px;">Failed to load students.</td></tr>';
     }
   }
 
@@ -214,7 +212,7 @@
 
     if (students.length === 0) {
       document.getElementById('studentsTable').innerHTML =
-        '<tr><td colspan="9" style="text-align:center; padding:40px; color:var(--gray-400);">No students enrolled in this subject yet.</td></tr>';
+        '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--gray-400);">No students enrolled in this subject yet.</td></tr>';
       return;
     }
 
@@ -226,11 +224,7 @@
       const rfidBadge = s.rfid_uid
         ? `<span class="badge success">✓ Linked</span>`
         : `<span class="badge neutral">Not linked</span>`;
-      const typeBadge = s.enrollment_type === 'guest'
-        ? `<span class="badge warning">Guest</span>`
-        : `<span class="badge info">Regular</span>`;
 
-      // Attendance bar
       const barWidth = sessionCount > 0 ? Math.min(rate, 100) : 0;
       const barColor = rate >= 75 ? 'var(--green)' : rate >= 50 ? '#D97706' : 'var(--red)';
 
@@ -259,7 +253,6 @@
               <span style="font-size:12px; font-weight:700; color:${rateColor}; min-width:32px; text-align:right;">${rateLabel}</span>
             </div>
           </td>
-          <td>${typeBadge}</td>
         </tr>`;
     }).join('');
   }

@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
 {
+    // THIS IS THE WEBHOOK FOR YOUR ESP32 HARDWARE!
     public function scanCard(Request $request)
     {
         $request->validate([
@@ -41,7 +42,7 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Already scanned', 'record' => $existing], 400);
         }
 
-        // Determine present or late immediately
+        // Determine present or late immediately based on Professor's setting
         $threshold = $session->subject->late_threshold_minutes ?? 15;
         $minutesLate = now()->diffInMinutes($session->started_at);
         $status = $minutesLate > $threshold ? 'late' : 'present';
@@ -51,8 +52,7 @@ class AttendanceController extends Controller
             'student_id'        => $student->id,
             'rfid_uid'          => strtoupper($request->uid),
             'rfid_scanned_at'   => now(),
-            'code_confirmed_at' => now(),
-            'status'            => $status,
+            'status'            => $status, // Instantly set to Present or Late
             'attendance_type'   => 'regular',
         ]);
 
@@ -64,33 +64,7 @@ class AttendanceController extends Controller
         ]);
     }
 
-    public function confirmCode(Request $request)
-    {
-        // Kept for backward compatibility but no longer needed in normal flow
-        $request->validate([
-            'record_id'  => 'required|exists:attendance_records,id',
-            'class_code' => 'required|string',
-        ]);
-
-        $record  = AttendanceRecord::findOrFail($request->record_id);
-        $session = $record->session;
-
-        if (strtoupper($request->class_code) !== strtoupper($session->subject->class_code)) {
-            return response()->json(['success' => false, 'message' => 'Invalid class code'], 400);
-        }
-
-        $threshold   = $session->subject->late_threshold_minutes ?? 15;
-        $minutesLate = now()->diffInMinutes($session->started_at);
-        $status      = $minutesLate > $threshold ? 'late' : 'present';
-
-        $record->update([
-            'code_confirmed_at' => now(),
-            'status'            => $status,
-        ]);
-
-        return response()->json(['success' => true, 'status' => $status, 'record' => $record]);
-    }
-
+    // Professor fetches this to update the Live Attendance screen
     public function liveFeed(Request $request, $sessionId)
     {
         $session = ClassSession::where('session_id', $sessionId)->first();
@@ -109,15 +83,5 @@ class AttendanceController extends Controller
             'session' => $session->load('subject'),
             'records' => $records,
         ]);
-    }
-
-    public function myAttendance(Request $request)
-    {
-        $records = AttendanceRecord::where('student_id', $request->user()->id)
-            ->with(['session.subject'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json(['success' => true, 'attendance' => $records]);
     }
 }
