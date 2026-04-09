@@ -72,6 +72,77 @@ class AdminController extends Controller
         return response()->json(['success' => true, 'user' => $user]);
     }
 
+    public function importStudentsCsv(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt|max:5120', // Max 5MB
+        ]);
+
+        $file = $request->file('file');
+        $fileHandle = fopen($file->getPathname(), 'r');
+        
+        // Read the first row (headers) and skip it
+        $header = fgetcsv($fileHandle);
+
+        $importedCount = 0;
+        $skippedCount = 0;
+
+        while (($row = fgetcsv($fileHandle)) !== false) {
+            // Map row data to variables based on our expected CSV columns
+            // [0]name, [1]email, [2]student_id, [3]rfid, [4]year_code, [5]section_name
+            if (count($row) < 6) {
+                $skippedCount++;
+                continue; // Skip incomplete rows
+            }
+
+            $name = trim($row[0]);
+            $email = trim($row[1]);
+            $studentId = trim($row[2]);
+            $rfidUid = trim($row[3]);
+            $yearCode = strtoupper(trim($row[4]));
+            $sectionName = strtoupper(trim($row[5]));
+
+            // 1. Find the Year Level by its code (e.g., '1Y', '2Y')
+            $yearLevel = \App\Models\YearLevel::where('code', $yearCode)->first();
+            
+            if (!$yearLevel) {
+                $skippedCount++;
+                continue; // Skip if year level doesn't exist in system
+            }
+
+            // 2. Find or Create the Section
+            $section = \App\Models\Section::firstOrCreate(
+                ['name' => $sectionName, 'year_level_id' => $yearLevel->id]
+            );
+
+            // 3. Create or Update the Student Record
+            // We use updateOrCreate so if they upload the same file twice, it updates instead of crashing
+            \App\Models\User::updateOrCreate(
+                ['email' => $email], // Search by email
+                [
+                    'name'              => $name,
+                    'student_id_number' => $studentId,
+                    'rfid_uid'          => empty($rfidUid) ? null : $rfidUid,
+                    'year_level_id'     => $yearLevel->id,
+                    'section_id'        => $section->id,
+                    'role'              => 'student',
+                    'status'            => 'active',
+                    // Give a random dummy password since students can't log in anymore
+                    'password'          => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(16)), 
+                ]
+            );
+
+            $importedCount++;
+        }
+
+        fclose($fileHandle);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Import complete. $importedCount students imported/updated. $skippedCount rows skipped.",
+        ]);
+    }
+
     // ─── Subject Management ───────────────────────────────────────────────────
 
     public function allSubjects()
@@ -149,7 +220,7 @@ class AdminController extends Controller
 
     // ─── Professor: Students by Subject ──────────────────────────────────────
 
-    public function professorStudents(Request $request)
+public function professorStudents(Request $request)
     {
         $request->validate([
             'subject_id' => 'required|exists:subjects,id',
@@ -158,7 +229,7 @@ class AdminController extends Controller
         $subjectId = $request->query('subject_id');
 
         // Verify the professor owns this subject
-        $subject = Subject::where('id', $subjectId)
+        $subject = \App\Models\Subject::where('id', $subjectId)
             ->where('professor_id', $request->user()->id)
             ->first();
 
@@ -167,49 +238,43 @@ class AdminController extends Controller
         }
 
         // Total ended sessions for this subject (for rate calculation)
-        $sessionCount = ClassSession::where('subject_id', $subjectId)
+        $sessionCount = \App\Models\ClassSession::where('subject_id', $subjectId)
             ->where('status', 'ended')
             ->count();
 
-        // Get enrollments with student info
-        $enrollments = Enrollment::where('subject_id', $subjectId)
-            ->with(['student.section'])
+        // INSTEAD OF ENROLLMENTS: Just get all students in the Subject's Section!
+        $studentsInSection = \App\Models\User::where('role', 'student')
+            ->where('section_id', $subject->section_id)
             ->get();
 
-        // Get all session IDs for this subject
-        $sessionIds = ClassSession::where('subject_id', $subjectId)
+        // Get all ended session IDs for this subject
+        $sessionIds = \App\Models\ClassSession::where('subject_id', $subjectId)
             ->where('status', 'ended')
             ->pluck('id');
 
-        $students = $enrollments->map(function ($enrollment) use ($sessionIds, $sessionCount) {
-            $student = $enrollment->student;
-
-            if (!$student) return null;
-
-            // Calculate attendance counts for this subject
+        $students = $studentsInSection->map(function ($student) use ($sessionIds, $sessionCount) {
             $presentCount = 0;
             $lateCount    = 0;
             $absentCount  = 0;
 
             if ($sessionIds->isNotEmpty()) {
-                $presentCount = AttendanceRecord::whereIn('session_id', $sessionIds)
+                $presentCount = \App\Models\AttendanceRecord::whereIn('session_id', $sessionIds)
                     ->where('student_id', $student->id)
                     ->where('status', 'present')
                     ->count();
 
-                $lateCount = AttendanceRecord::whereIn('session_id', $sessionIds)
+                $lateCount = \App\Models\AttendanceRecord::whereIn('session_id', $sessionIds)
                     ->where('student_id', $student->id)
                     ->where('status', 'late')
                     ->count();
 
-                $absentCount = AttendanceRecord::whereIn('session_id', $sessionIds)
+                $absentCount = \App\Models\AttendanceRecord::whereIn('session_id', $sessionIds)
                     ->where('student_id', $student->id)
                     ->where('status', 'absent')
                     ->count();
 
-                // Students with no record at all for a session are also absent
-                // Count sessions where student has no record
-                $recordedSessions = AttendanceRecord::whereIn('session_id', $sessionIds)
+                // Implicit absences (they didn't tap their card at all)
+                $recordedSessions = \App\Models\AttendanceRecord::whereIn('session_id', $sessionIds)
                     ->where('student_id', $student->id)
                     ->distinct('session_id')
                     ->count('session_id');
@@ -226,14 +291,12 @@ class AdminController extends Controller
                 'student_id_number' => $student->student_id_number,
                 'rfid_uid'          => $student->rfid_uid,
                 'status'            => $student->status,
-                'section'           => $student->section,
-                'enrollment_type'   => $enrollment->enrollment_type,
                 'present_count'     => $presentCount,
                 'late_count'        => $lateCount,
                 'absent_count'      => $absentCount,
                 'attendance_rate'   => $rate,
             ];
-        })->filter()->values();
+        });
 
         return response()->json([
             'success'       => true,

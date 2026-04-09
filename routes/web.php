@@ -4,24 +4,21 @@ use Illuminate\Support\Facades\Route;
 
 // Auth
 Route::get('/', fn() => redirect('/login'));
-Route::get('/login', fn() => view('auth.login'));
-Route::get('/register', fn() => view('auth.register'));
+Route::get('/login', fn() => view('auth.login'))->name('login');
 
-// Student
-Route::get('/student/dashboard', fn() => view('student.dashboard'));
-Route::get('/student/classes', fn() => view('student.classes'));
-Route::get('/student/attendance', fn() => view('student.attendance'));
-Route::get('/student/rfid-link', fn() => view('student.rfid-link'));
+// Professor Dashboard & Views
+Route::prefix('professor')->group(function () {
+    Route::get('/dashboard', fn() => view('professor.dashboard'));
+    Route::get('/subjects', fn() => view('professor.subjects'));
+    Route::get('/live-attendance', fn() => view('professor.live-attendance'));
+    Route::get('/history', fn() => view('professor.history'));
+    Route::get('/students', fn() => view('professor.students'));
+});
 
-// Professor
-Route::get('/professor/dashboard', fn() => view('professor.dashboard'));
-Route::get('/professor/subjects', fn() => view('professor.subjects'));
-Route::get('/professor/live-attendance', fn() => view('professor.live-attendance'));
-Route::get('/professor/history', fn() => view('professor.history'));
-Route::get('/professor/students', fn() => view('professor.students'));
-
-// Admin
-Route::get('/admin/dashboard', fn() => view('admin.dashboard'));
-Route::get('/admin/users', fn() => view('admin.users'));
-Route::get('/admin/sections', fn() => view('admin.sections'));
-Route::get('/admin/subjects', fn() => view('admin.subjects'));
+// Admin Dashboard & Views
+Route::prefix('admin')->group(function () {
+    Route::get('/dashboard', fn() => view('admin.dashboard'));
+    Route::get('/users', fn() => view('admin.users'));
+    Route::get('/sections', fn() => view('admin.sections'));
+    Route::get('/subjects', fn() => view('admin.subjects'));
+});

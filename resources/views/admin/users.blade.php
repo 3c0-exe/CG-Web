@@ -32,8 +32,22 @@
   </div>
 
   <div class="content">
+
+    <div class="section" style="padding: 24px; margin-bottom: 20px; overflow: hidden; border: 1px solid var(--gray-200); border-radius: 8px;">
+      <h3 style="font-size:16px; font-weight:600; margin-bottom:8px;">Bulk Import Students (CSV)</h3>
+      <p style="font-size:13px; color:var(--gray-500); margin-bottom:16px;">
+        Upload a CSV file with the following column headers: <strong>name, email, student_id_number, rfid_uid, year_level_code, section_name</strong>.
+      </p>
+      
+      <form id="csvUploadForm" style="display:flex; gap:12px; align-items:center;">
+        <input type="file" id="csvFile" accept=".csv, .txt" required style="font-size:13px; padding:8px; border: 1px solid var(--gray-200); border-radius: 6px; flex: 1; max-width: 400px;">
+        <button type="submit" id="uploadBtn" class="btn btn-primary">Upload & Import</button>
+      </form>
+
+      <div id="uploadStatus" style="display:none; margin-top:16px; padding:12px 16px; border-radius:6px; font-size:13px; font-weight: 500;"></div>
+    </div>
+
     <div class="section" style="padding:0; overflow:hidden;">
-      <!-- Tabs -->
       <div style="display:flex; border-bottom:1px solid var(--gray-200);">
         <button class="tab-btn" id="tab-all" onclick="setTab('all')" style="padding:16px 24px; border:none; background:none; font-size:14px; font-weight:500; cursor:pointer; border-bottom:2px solid var(--navy-blue); color:var(--navy-blue);">All Users</button>
         <button class="tab-btn" id="tab-pending" onclick="setTab('pending')" style="padding:16px 24px; border:none; background:none; font-size:14px; font-weight:500; cursor:pointer; border-bottom:2px solid transparent; color:var(--gray-500);">Pending</button>
@@ -41,7 +55,6 @@
         <button class="tab-btn" id="tab-professors" onclick="setTab('professors')" style="padding:16px 24px; border:none; background:none; font-size:14px; font-weight:500; cursor:pointer; border-bottom:2px solid transparent; color:var(--gray-500);">Professors</button>
       </div>
 
-      <!-- Search -->
       <div style="padding:16px 24px; display:flex; gap:12px; align-items:center; background:var(--gray-50); border-bottom:1px solid var(--gray-200);">
         <div class="search-wrap" style="flex:1;">
           <span class="search-icon">🔍</span>
@@ -49,7 +62,6 @@
         </div>
       </div>
 
-      <!-- Table -->
       <div class="table-wrapper" style="padding:0;">
         <table>
           <thead>
@@ -72,7 +84,6 @@
   </div>
 </main>
 
-<!-- Add Professor Modal -->
 <div id="professorModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
   <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:460px;">
     <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">Add Professor</h3>
@@ -223,6 +234,49 @@
       errEl.style.display = 'block';
     } finally { btn.disabled = false; btn.textContent = 'Add Professor'; }
   }
+
+  // Handle CSV Bulk Upload via Axios
+  document.getElementById('csvUploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const fileInput = document.getElementById('csvFile');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const statusDiv = document.getElementById('uploadStatus');
+    
+    if (fileInput.files.length === 0) return;
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    uploadBtn.disabled = true;
+    uploadBtn.innerText = 'Importing...';
+    statusDiv.style.display = 'none';
+
+    try {
+      const response = await axios.post('/api/admin/users/import-students', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      statusDiv.style.display = 'block';
+      statusDiv.style.background = 'rgba(16, 185, 129, 0.1)';
+      statusDiv.style.color = '#065f46';
+      statusDiv.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+      statusDiv.innerText = '✅ ' + response.data.message;
+      
+      fileInput.value = ''; // Reset input
+      loadUsers(); // Instantly refresh the table to show new students!
+      
+    } catch (error) {
+      statusDiv.style.display = 'block';
+      statusDiv.style.background = 'rgba(239, 68, 68, 0.1)';
+      statusDiv.style.color = '#991b1b';
+      statusDiv.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+      statusDiv.innerText = '❌ ' + (error.response?.data?.message || 'Upload failed. Please check your CSV file format.');
+    } finally {
+      uploadBtn.disabled = false;
+      uploadBtn.innerText = 'Upload & Import';
+    }
+  });
 
   function logout() { axios.post('/api/logout').finally(() => { localStorage.clear(); window.location.href = '/login'; }); }
 

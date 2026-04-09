@@ -62,7 +62,6 @@
       <button class="btn-submit" id="loginBtn" onclick="handleLogin()">Sign In</button>
 
       <div class="auth-footer">
-        <a href="{{ url('/register') }}">Don't have an account? Create one →</a>
       </div>
     </div>
   </div>
