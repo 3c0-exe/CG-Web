@@ -106,6 +106,34 @@
     </div>
   </div>
 </div>
+
+<div id="editUserModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:460px;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">Edit User Details</h3>
+    <div id="editError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+    
+    <input type="hidden" id="editUserId">
+    
+    <div class="form-group">
+      <label class="form-label">Full Name</label>
+      <input type="text" class="form-input" id="editName">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Student ID (Optional)</label>
+      <input type="text" class="form-input" id="editStudentId">
+    </div>
+    <div class="form-group">
+      <label class="form-label">RFID UID (Editable)</label>
+      <input type="text" class="form-input" id="editRfid" placeholder="e.g., A1:B2:C3:D4">
+      <p style="font-size: 11px; color: var(--gray-500); margin-top: 4px;">Update this if the student gets a new ID card.</p>
+    </div>
+    
+    <div style="display:flex; gap:12px; margin-top: 24px;">
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('editUserModal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="saveEditBtn" onclick="saveUserEdit()">Save Changes</button>
+    </div>
+  </div>
+</div>
 @endsection
 
 @section('scripts')
@@ -153,6 +181,7 @@
           <td>${statusBadge(u.status)}</td>
           <td>
             <div style="display:flex; gap:4px;">
+              <button class="btn btn-ghost btn-sm" style="color:var(--navy-blue);" onclick="openEditModal(${u.id})">Edit</button>
               ${u.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="updateStatus(${u.id}, 'active')">✓ Approve</button>` : ''}
               ${u.status === 'active' && u.role !== 'admin' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="updateStatus(${u.id}, 'inactive')">Suspend</button>` : ''}
               ${u.status === 'inactive' ? `<button class="btn btn-ghost btn-sm" onclick="updateStatus(${u.id}, 'active')">Activate</button>` : ''}
@@ -233,6 +262,43 @@
       errEl.textContent = '❌ ' + (errors ? Object.values(errors)[0][0] : e.response?.data?.message || 'Failed.');
       errEl.style.display = 'block';
     } finally { btn.disabled = false; btn.textContent = 'Add Professor'; }
+  }
+
+  function openEditModal(userId) {
+    const user = allUsers.find(u => u.id === userId);
+    if (!user) return;
+
+    document.getElementById('editUserId').value = user.id;
+    document.getElementById('editName').value = user.name || '';
+    document.getElementById('editStudentId').value = user.student_id_number || '';
+    document.getElementById('editRfid').value = user.rfid_uid || '';
+    
+    document.getElementById('editError').style.display = 'none';
+    document.getElementById('editUserModal').style.display = 'flex';
+  }
+
+  async function saveUserEdit() {
+    const btn = document.getElementById('saveEditBtn');
+    const errEl = document.getElementById('editError');
+    const id = document.getElementById('editUserId').value;
+    
+    btn.disabled = true; btn.textContent = 'Saving...'; errEl.style.display = 'none';
+    
+    try {
+      await axios.patch(`/api/admin/users/${id}`, {
+        name: document.getElementById('editName').value,
+        student_id_number: document.getElementById('editStudentId').value,
+        rfid_uid: document.getElementById('editRfid').value,
+      });
+      
+      document.getElementById('editUserModal').style.display = 'none';
+      loadUsers(); // Refresh the table
+    } catch (e) {
+      errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to update user.');
+      errEl.style.display = 'block';
+    } finally { 
+      btn.disabled = false; btn.textContent = 'Save Changes'; 
+    }
   }
 
   // Handle CSV Bulk Upload via Axios

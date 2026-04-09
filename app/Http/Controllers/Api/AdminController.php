@@ -72,6 +72,33 @@ class AdminController extends Controller
         return response()->json(['success' => true, 'user' => $user]);
     }
 
+    public function updateUser(Request $request, $userId)
+    {
+        $request->validate([
+            'name'              => 'required|string',
+            'student_id_number' => 'nullable|string',
+            'rfid_uid'          => 'nullable|string',
+        ]);
+
+        $user = \App\Models\User::findOrFail($userId);
+        
+        // Ensure the new RFID isn't already assigned to someone else
+        if ($request->rfid_uid && $request->rfid_uid !== $user->rfid_uid) {
+            $exists = \App\Models\User::where('rfid_uid', $request->rfid_uid)->exists();
+            if ($exists) {
+                return response()->json(['success' => false, 'message' => 'This RFID UID is already assigned to another user.'], 400);
+            }
+        }
+
+        $user->update([
+            'name'              => $request->name,
+            'student_id_number' => $request->student_id_number,
+            'rfid_uid'          => $request->rfid_uid,
+        ]);
+
+        return response()->json(['success' => true, 'user' => $user]);
+    }
+
     public function importStudentsCsv(Request $request)
     {
         $request->validate([
@@ -155,7 +182,6 @@ class AdminController extends Controller
     {
         $request->validate([
             'name'                   => 'required|string',
-            'code'                   => 'required|string',
             'year_level_id'          => 'required|exists:year_levels,id',
             'section_id'             => 'required|exists:sections,id',
             'professor_id'           => 'required|exists:users,id',
@@ -163,10 +189,7 @@ class AdminController extends Controller
             'late_threshold_minutes' => 'integer|min:1',
         ]);
 
-        $subject = Subject::create([
-            ...$request->all(),
-            'class_code' => strtoupper(\Illuminate\Support\Str::random(6)),
-        ]);
+        $subject = \App\Models\Subject::create($request->all());
 
         return response()->json(['success' => true, 'subject' => $subject->load('professor', 'section', 'yearLevel')], 201);
     }
@@ -175,7 +198,6 @@ class AdminController extends Controller
     {
         $request->validate([
             'name'                   => 'required|string',
-            'code'                   => 'required|string',
             'year_level_id'          => 'required|exists:year_levels,id',
             'section_id'             => 'required|exists:sections,id',
             'professor_id'           => 'required|exists:users,id',
@@ -183,10 +205,9 @@ class AdminController extends Controller
             'late_threshold_minutes' => 'integer|min:1',
         ]);
 
-        $subject = Subject::findOrFail($subjectId);
+        $subject = \App\Models\Subject::findOrFail($subjectId);
         $subject->update($request->only([
             'name',
-            'code',
             'year_level_id',
             'section_id',
             'professor_id',
