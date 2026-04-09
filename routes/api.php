@@ -27,6 +27,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Professor Routes
     Route::prefix('professor')->group(function () {
+        // ADD THIS LINE:
+        Route::get('/subjects', [AdminController::class, 'professorSubjects']);
         Route::post('/session/start', [SessionController::class, 'startSession']);
         Route::post('/session/end/{sessionId}', [SessionController::class, 'endSession']);
         Route::get('/session/active', [SessionController::class, 'activeSessions']);

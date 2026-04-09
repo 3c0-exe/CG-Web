@@ -32,7 +32,6 @@
 </aside>
 
 <main class="main">
-  <!-- No session state -->
   <div id="noSession">
     <div class="topbar">
       <div class="topbar-left"><h1>Live Attendance</h1><p class="topbar-subtitle">No active session</p></div>
@@ -50,7 +49,6 @@
     </div>
   </div>
 
-  <!-- Active session state -->
   <div id="activeSession" style="display:none;">
     <div class="topbar">
       <div class="topbar-left">
@@ -66,7 +64,6 @@
     </div>
 
     <div class="content">
-      <!-- Session Info Bar -->
       <div style="background:var(--navy-dark); border-radius:8px; padding:16px 24px; margin-bottom:24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
         <div style="display:flex; gap:32px;">
           <div>
@@ -74,21 +71,13 @@
             <div style="font-size:14px; font-weight:600; color:var(--white);" id="sessionSubject">–</div>
           </div>
           <div>
-            <div style="font-size:11px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px;">Class Code</div>
-            <div style="font-size:20px; font-weight:800; color:var(--gold); letter-spacing:0.15em;" id="sessionCode">–</div>
-          </div>
-          <div>
             <div style="font-size:11px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px;">Elapsed</div>
             <div style="font-size:14px; font-weight:600; color:var(--white);" id="sessionTimer">00:00:00</div>
           </div>
         </div>
-        <div style="display:flex; gap:8px;">
-          <button class="btn" style="background:var(--gold); color:var(--navy-dark);" onclick="copyCode()">📋 Copy Code</button>
-        </div>
       </div>
 
-      <!-- Stats -->
-      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr); margin-bottom:24px;">
+      <div class="stats-grid" style="grid-template-columns:repeat(3,1fr); margin-bottom:24px;">
         <div class="stat-card" style="border-left:4px solid var(--green);">
           <div class="stat-label">Present</div>
           <div class="stat-value" style="color:var(--green)" id="countPresent">0</div>
@@ -97,11 +86,6 @@
           <div class="stat-label">Late</div>
           <div class="stat-value" style="color:#D97706" id="countLate">0</div>
         </div>
-        <div class="stat-card" style="border-left:4px solid var(--navy-blue);">
-          <div class="stat-label">Pending</div>
-          <div class="stat-value" style="color:var(--navy-blue)" id="countPending">0</div>
-          <div class="stat-change info">scanned, no code</div>
-        </div>
         <div class="stat-card" style="border-left:4px solid var(--red);">
           <div class="stat-label">Not Yet Scanned</div>
           <div class="stat-value" style="color:var(--red)" id="countAbsent">0</div>
@@ -109,7 +93,6 @@
       </div>
 
       <div class="grid-2">
-        <!-- Live Feed -->
         <div class="section">
           <div class="section-header">
             <h2 class="section-title">Live Scan Feed</h2>
@@ -122,7 +105,6 @@
           </div>
         </div>
 
-        <!-- Absent students -->
         <div class="section">
           <div class="section-header">
             <h2 class="section-title">Not Yet Scanned</h2>
@@ -155,7 +137,7 @@
   function statusColor(s) {
     if (s === 'present') return { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', badge: 'success', icon: '✅', label: 'Present' };
     if (s === 'late') return { bg: 'rgba(252,211,77,0.08)', border: 'rgba(252,211,77,0.35)', badge: 'warning', icon: '⏰', label: 'Late' };
-    return { bg: 'rgba(30,58,138,0.05)', border: 'rgba(30,58,138,0.2)', badge: 'info', icon: '🔄', label: 'Pending' };
+    return { bg: 'rgba(229,231,235,0.5)', border: 'rgba(209,213,219,0.5)', badge: 'neutral', icon: '❌', label: 'Absent' };
   }
 
   function startTimer(startedAt) {
@@ -171,25 +153,24 @@
   async function loadLiveFeed() {
     if (!sessionId) return;
     try {
-      const res = await axios.get(`/api/attendance/live/${sessionId}`);
+      // Updated to the secure professor route
+      const res = await axios.get(`/api/professor/attendance/live/${sessionId}`);
       const { session, records } = res.data;
       sessionData = session;
 
       document.getElementById('activeSession').style.display = 'block';
       document.getElementById('noSession').style.display = 'none';
       document.getElementById('sessionSubject').textContent = session.subject?.name || '–';
-      document.getElementById('sessionCode').textContent = session.subject?.class_code || '–';
       document.getElementById('sessionInfo').textContent = `${session.subject?.name || ''} · ${session.subject?.section?.name || ''} · Started ${new Date(session.started_at).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })}`;
 
       if (!timerInterval) startTimer(session.started_at);
 
       const present = records.filter(r => r.status === 'present').length;
       const late = records.filter(r => r.status === 'late').length;
-      const pending = records.filter(r => r.status === 'pending').length;
+      
       document.getElementById('countPresent').textContent = present;
       document.getElementById('countLate').textContent = late;
-      document.getElementById('countPending').textContent = pending;
-      document.getElementById('countAbsent').textContent = '–';
+      document.getElementById('countAbsent').textContent = '–'; // Kept as dash until total class size is calculated
 
       if (records.length === 0) {
         document.getElementById('scanFeed').innerHTML = '<div style="text-align:center; padding:32px; color:var(--gray-400);">Waiting for card scans...</div>';
@@ -217,9 +198,10 @@
   }
 
   async function endSession() {
-    if (!sessionId || !confirm('End this session? All pending students will be marked absent.')) return;
+    if (!sessionId || !confirm('End this session? All unscanned students will be marked absent.')) return;
     try {
-      await axios.post(`/api/session/end/${sessionId}`);
+      // Updated to the secure professor route
+      await axios.post(`/api/professor/session/end/${sessionId}`);
       clearInterval(timerInterval);
       clearInterval(pollInterval);
       window.location.href = '/professor/history';
@@ -228,19 +210,14 @@
     }
   }
 
-  function copyCode() {
-    const code = document.getElementById('sessionCode').textContent;
-    navigator.clipboard.writeText(code).catch(() => {});
-    alert('Class code ' + code + ' copied!');
-  }
-
   function logout() { axios.post('/api/logout').finally(() => { localStorage.clear(); window.location.href = '/login'; }); }
 
   if (sessionId) {
     loadLiveFeed();
     pollInterval = setInterval(loadLiveFeed, 3000);
   } else {
-    axios.get('/api/session/active').then(res => {
+    // Updated to the secure professor route
+    axios.get('/api/professor/session/active').then(res => {
       if (res.data.sessions.length > 0) {
         window.location.href = '/professor/live-attendance?session=' + res.data.sessions[0].session_id;
       }

@@ -85,7 +85,8 @@
 
   async function loadHistory() {
     try {
-      const res = await axios.get('/api/session/history');
+      // Updated to the secure professor route!
+      const res = await axios.get('/api/professor/session/history');
       const sessions = res.data.sessions;
 
       const totalPresent = sessions.reduce((a, s) => a + s.present_count, 0);

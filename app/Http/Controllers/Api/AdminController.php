@@ -8,13 +8,15 @@ use App\Models\Subject;
 use App\Models\ClassSession;
 use App\Models\Section;
 use App\Models\YearLevel;
-use App\Models\Enrollment;
 use App\Models\AttendanceRecord;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AdminController extends Controller
 {
+    // ─── Dashboard Stats ──────────────────────────────────────────────────────
+
     public function stats()
     {
         return response()->json([
@@ -28,6 +30,8 @@ class AdminController extends Controller
             ],
         ]);
     }
+
+    // ─── User Management ──────────────────────────────────────────────────────
 
     public function allUsers(Request $request)
     {
@@ -80,11 +84,10 @@ class AdminController extends Controller
             'rfid_uid'          => 'nullable|string',
         ]);
 
-        $user = \App\Models\User::findOrFail($userId);
+        $user = User::findOrFail($userId);
         
-        // Ensure the new RFID isn't already assigned to someone else
         if ($request->rfid_uid && $request->rfid_uid !== $user->rfid_uid) {
-            $exists = \App\Models\User::where('rfid_uid', $request->rfid_uid)->exists();
+            $exists = User::where('rfid_uid', $request->rfid_uid)->exists();
             if ($exists) {
                 return response()->json(['success' => false, 'message' => 'This RFID UID is already assigned to another user.'], 400);
             }
@@ -102,24 +105,21 @@ class AdminController extends Controller
     public function importStudentsCsv(Request $request)
     {
         $request->validate([
-            'file' => 'required|file|mimes:csv,txt|max:5120', // Max 5MB
+            'file' => 'required|file|mimes:csv,txt|max:5120',
         ]);
 
         $file = $request->file('file');
         $fileHandle = fopen($file->getPathname(), 'r');
         
-        // Read the first row (headers) and skip it
-        $header = fgetcsv($fileHandle);
+        $header = fgetcsv($fileHandle); // Skip header
 
         $importedCount = 0;
         $skippedCount = 0;
 
         while (($row = fgetcsv($fileHandle)) !== false) {
-            // Map row data to variables based on our expected CSV columns
-            // [0]name, [1]email, [2]student_id, [3]rfid, [4]year_code, [5]section_name
             if (count($row) < 6) {
                 $skippedCount++;
-                continue; // Skip incomplete rows
+                continue;
             }
 
             $name = trim($row[0]);
@@ -129,23 +129,19 @@ class AdminController extends Controller
             $yearCode = strtoupper(trim($row[4]));
             $sectionName = strtoupper(trim($row[5]));
 
-            // 1. Find the Year Level by its code (e.g., '1Y', '2Y')
-            $yearLevel = \App\Models\YearLevel::where('code', $yearCode)->first();
+            $yearLevel = YearLevel::where('code', $yearCode)->first();
             
             if (!$yearLevel) {
                 $skippedCount++;
-                continue; // Skip if year level doesn't exist in system
+                continue; 
             }
 
-            // 2. Find or Create the Section
-            $section = \App\Models\Section::firstOrCreate(
+            $section = Section::firstOrCreate(
                 ['name' => $sectionName, 'year_level_id' => $yearLevel->id]
             );
 
-            // 3. Create or Update the Student Record
-            // We use updateOrCreate so if they upload the same file twice, it updates instead of crashing
-            \App\Models\User::updateOrCreate(
-                ['email' => $email], // Search by email
+            User::updateOrCreate(
+                ['email' => $email],
                 [
                     'name'              => $name,
                     'student_id_number' => $studentId,
@@ -154,8 +150,7 @@ class AdminController extends Controller
                     'section_id'        => $section->id,
                     'role'              => 'student',
                     'status'            => 'active',
-                    // Give a random dummy password since students can't log in anymore
-                    'password'          => \Illuminate\Support\Facades\Hash::make(\Illuminate\Support\Str::random(16)), 
+                    'password'          => Hash::make(Str::random(16)), 
                 ]
             );
 
@@ -189,7 +184,7 @@ class AdminController extends Controller
             'late_threshold_minutes' => 'integer|min:1',
         ]);
 
-        $subject = \App\Models\Subject::create($request->all());
+        $subject = Subject::create($request->all());
 
         return response()->json(['success' => true, 'subject' => $subject->load('professor', 'section', 'yearLevel')], 201);
     }
@@ -205,7 +200,7 @@ class AdminController extends Controller
             'late_threshold_minutes' => 'integer|min:1',
         ]);
 
-        $subject = \App\Models\Subject::findOrFail($subjectId);
+        $subject = Subject::findOrFail($subjectId);
         $subject->update($request->only([
             'name',
             'year_level_id',
@@ -222,26 +217,30 @@ class AdminController extends Controller
     {
         $subject = Subject::findOrFail($subjectId);
 
-        // Prevent deletion if there are active sessions
         $activeSession = ClassSession::where('subject_id', $subjectId)
             ->where('status', 'active')
             ->exists();
 
         if ($activeSession) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot delete a subject with an active session. End the session first.',
-            ], 400);
+            return response()->json(['success' => false, 'message' => 'Cannot delete a subject with an active session.'], 400);
         }
 
         $subject->delete();
-
-        return response()->json(['success' => true, 'message' => 'Subject deleted successfully']);
+        return response()->json(['success' => true, 'message' => 'Subject deleted']);
     }
 
-    // ─── Professor: Students by Subject ──────────────────────────────────────
+    // ─── Professor specific logic ─────────────────────────────────────────────
 
-public function professorStudents(Request $request)
+    public function professorSubjects(Request $request)
+    {
+        $subjects = Subject::where('professor_id', $request->user()->id)
+            ->with('section', 'yearLevel')
+            ->get();
+
+        return response()->json(['success' => true, 'subjects' => $subjects]);
+    }
+
+    public function professorStudents(Request $request)
     {
         $request->validate([
             'subject_id' => 'required|exists:subjects,id',
@@ -249,56 +248,25 @@ public function professorStudents(Request $request)
 
         $subjectId = $request->query('subject_id');
 
-        // Verify the professor owns this subject
-        $subject = \App\Models\Subject::where('id', $subjectId)
+        $subject = Subject::where('id', $subjectId)
             ->where('professor_id', $request->user()->id)
             ->first();
 
-        if (!$subject) {
-            return response()->json(['success' => false, 'message' => 'Subject not found or not assigned to you'], 403);
-        }
+        if (!$subject) return response()->json(['success' => false, 'message' => 'Subject not found'], 403);
 
-        // Total ended sessions for this subject (for rate calculation)
-        $sessionCount = \App\Models\ClassSession::where('subject_id', $subjectId)
-            ->where('status', 'ended')
-            ->count();
-
-        // INSTEAD OF ENROLLMENTS: Just get all students in the Subject's Section!
-        $studentsInSection = \App\Models\User::where('role', 'student')
-            ->where('section_id', $subject->section_id)
-            ->get();
-
-        // Get all ended session IDs for this subject
-        $sessionIds = \App\Models\ClassSession::where('subject_id', $subjectId)
-            ->where('status', 'ended')
-            ->pluck('id');
+        $sessionCount = ClassSession::where('subject_id', $subjectId)->where('status', 'ended')->count();
+        $studentsInSection = User::where('role', 'student')->where('section_id', $subject->section_id)->get();
+        $sessionIds = ClassSession::where('subject_id', $subjectId)->where('status', 'ended')->pluck('id');
 
         $students = $studentsInSection->map(function ($student) use ($sessionIds, $sessionCount) {
-            $presentCount = 0;
-            $lateCount    = 0;
-            $absentCount  = 0;
+            $presentCount = 0; $lateCount = 0; $absentCount = 0;
 
             if ($sessionIds->isNotEmpty()) {
-                $presentCount = \App\Models\AttendanceRecord::whereIn('session_id', $sessionIds)
-                    ->where('student_id', $student->id)
-                    ->where('status', 'present')
-                    ->count();
+                $presentCount = AttendanceRecord::whereIn('session_id', $sessionIds)->where('student_id', $student->id)->where('status', 'present')->count();
+                $lateCount    = AttendanceRecord::whereIn('session_id', $sessionIds)->where('student_id', $student->id)->where('status', 'late')->count();
+                $absentCount  = AttendanceRecord::whereIn('session_id', $sessionIds)->where('student_id', $student->id)->where('status', 'absent')->count();
 
-                $lateCount = \App\Models\AttendanceRecord::whereIn('session_id', $sessionIds)
-                    ->where('student_id', $student->id)
-                    ->where('status', 'late')
-                    ->count();
-
-                $absentCount = \App\Models\AttendanceRecord::whereIn('session_id', $sessionIds)
-                    ->where('student_id', $student->id)
-                    ->where('status', 'absent')
-                    ->count();
-
-                // Implicit absences (they didn't tap their card at all)
-                $recordedSessions = \App\Models\AttendanceRecord::whereIn('session_id', $sessionIds)
-                    ->where('student_id', $student->id)
-                    ->distinct('session_id')
-                    ->count('session_id');
+                $recordedSessions = AttendanceRecord::whereIn('session_id', $sessionIds)->where('student_id', $student->id)->distinct('session_id')->count('session_id');
                 $absentCount += ($sessionCount - $recordedSessions);
             }
 
@@ -319,22 +287,15 @@ public function professorStudents(Request $request)
             ];
         });
 
-        return response()->json([
-            'success'       => true,
-            'students'      => $students,
-            'session_count' => $sessionCount,
-            'subject'       => $subject->load('section'),
-        ]);
+        return response()->json(['success' => true, 'students' => $students, 'session_count' => $sessionCount, 'subject' => $subject->load('section')]);
     }
 
-    // ─── Year Levels ──────────────────────────────────────────────────────────
+    // ─── Year Levels & Sections ───────────────────────────────────────────────
 
     public function yearLevels()
     {
         return response()->json(['success' => true, 'year_levels' => YearLevel::with('sections')->get()]);
     }
-
-    // ─── Section Management ───────────────────────────────────────────────────
 
     public function createSection(Request $request)
     {
@@ -343,42 +304,24 @@ public function professorStudents(Request $request)
             'name'          => 'required|string',
         ]);
 
-        $exists = Section::where('year_level_id', $request->year_level_id)
-            ->where('name', strtoupper($request->name))
-            ->exists();
+        $exists = Section::where('year_level_id', $request->year_level_id)->where('name', strtoupper($request->name))->exists();
+        if ($exists) return response()->json(['success' => false, 'message' => 'Section already exists'], 400);
 
-        if ($exists) {
-            return response()->json(['success' => false, 'message' => 'Section already exists'], 400);
-        }
-
-        $section = Section::create([
-            'year_level_id' => $request->year_level_id,
-            'name'          => strtoupper($request->name),
-        ]);
-
+        $section = Section::create(['year_level_id' => $request->year_level_id, 'name' => strtoupper($request->name)]);
         return response()->json(['success' => true, 'section' => $section], 201);
     }
 
     public function updateSection(Request $request, $sectionId)
     {
-        $request->validate([
-            'year_level_id' => 'required|exists:year_levels,id',
-            'name'          => 'required|string',
-        ]);
-
+        $request->validate(['year_level_id' => 'required|exists:year_levels,id', 'name' => 'required|string']);
         $section = Section::findOrFail($sectionId);
-        $section->update([
-            'year_level_id' => $request->year_level_id,
-            'name'          => strtoupper($request->name),
-        ]);
-
+        $section->update(['year_level_id' => $request->year_level_id, 'name' => strtoupper($request->name)]);
         return response()->json(['success' => true, 'section' => $section]);
     }
 
     public function deleteSection($sectionId)
     {
-        $section = Section::findOrFail($sectionId);
-        $section->delete();
+        Section::findOrFail($sectionId)->delete();
         return response()->json(['success' => true, 'message' => 'Section deleted']);
     }
 }

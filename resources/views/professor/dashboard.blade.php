@@ -56,7 +56,6 @@
     </div>
 
     <div class="grid-2">
-      <!-- My Subjects -->
       <div class="section">
         <div class="section-header">
           <h2 class="section-title">My Subjects</h2>
@@ -67,7 +66,6 @@
         </div>
       </div>
 
-      <!-- Active Sessions -->
       <div class="section">
         <div class="section-header">
           <h2 class="section-title">Active Sessions</h2>
@@ -95,12 +93,13 @@
   async function loadDashboard() {
     try {
       const [subjectsRes, activeRes, historyRes] = await Promise.all([
-        axios.get('/api/admin/subjects'),
-        axios.get('/api/session/active'),
-        axios.get('/api/session/history'),
+        axios.get('/api/professor/subjects'),         
+        axios.get('/api/professor/session/active'),   
+        axios.get('/api/professor/session/history')   
       ]);
 
-      const mySubjects = subjectsRes.data.subjects.filter(s => s.professor_id === user.id);
+      // No need to filter by user.id anymore, the backend handles it!
+      const mySubjects = subjectsRes.data.subjects;
       const activeSessions = activeRes.data.sessions;
       const history = historyRes.data.sessions;
 
@@ -120,8 +119,7 @@
                   <div style="font-size:14px; font-weight:600; color:var(--gray-900);">${s.name}</div>
                   ${isActive ? '<span class="live-badge"><span class="live-dot"></span>LIVE</span>' : ''}
                 </div>
-                <div style="font-size:12px; color:var(--gray-500);">${s.code} · ${s.section?.name || ''}</div>
-                <div style="margin-top:6px; font-size:12px; color:var(--gray-500);">Class Code: <strong>${s.class_code}</strong></div>
+                <div style="font-size:12px; color:var(--gray-500);">${s.section?.name || 'No Section'} · ${s.year_level?.name || 'No Year'}</div>
               </div>
               <div style="display:flex; gap:8px;">
                 ${isActive
@@ -157,7 +155,8 @@
 
   async function startSession(subjectId) {
     try {
-      const res = await axios.post('/api/session/start', { subject_id: subjectId });
+      // Updated to the secure professor route!
+      const res = await axios.post('/api/professor/session/start', { subject_id: subjectId });
       window.location.href = '/professor/live-attendance?session=' + res.data.session.session_id;
     } catch (e) {
       alert(e.response?.data?.message || 'Failed to start session.');
