@@ -117,6 +117,97 @@
     const token = localStorage.getItem('token');
     if (token) axios.defaults.headers.common['Authorization'] = 'Bearer ' + token;
   </script>
-  @yield('scripts')
+@yield('scripts')
+
+  <!-- Change Password Modal (shared across all dashboards) -->
+  <div id="changePasswordModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300; align-items:center; justify-content:center; padding:24px;">
+    <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:420px;">
+      <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">🔒 Change Password</h3>
+      <div id="pwError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+      <div id="pwSuccess" style="display:none; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.2); color:var(--green); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+      <div class="form-group">
+        <label class="form-label">Current Password</label>
+        <input type="password" class="form-input" id="pwCurrent" placeholder="Enter current password">
+      </div>
+      <div class="form-group">
+        <label class="form-label">New Password</label>
+        <input type="password" class="form-input" id="pwNew" placeholder="Min. 8 characters">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm New Password</label>
+        <input type="password" class="form-input" id="pwConfirm" placeholder="Repeat new password">
+      </div>
+      <div style="display:flex; gap:12px; margin-top:8px;">
+        <button class="btn btn-ghost" style="flex:1" onclick="closePasswordModal()">Cancel</button>
+        <button class="btn btn-primary" style="flex:2" id="pwSaveBtn" onclick="savePassword()">Update Password</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openPasswordModal() {
+      document.getElementById('changePasswordModal').style.display = 'flex';
+      document.getElementById('pwCurrent').value = '';
+      document.getElementById('pwNew').value = '';
+      document.getElementById('pwConfirm').value = '';
+      document.getElementById('pwError').style.display = 'none';
+      document.getElementById('pwSuccess').style.display = 'none';
+    }
+
+    function closePasswordModal() {
+      document.getElementById('changePasswordModal').style.display = 'none';
+    }
+
+    async function savePassword() {
+      const btn = document.getElementById('pwSaveBtn');
+      const errEl = document.getElementById('pwError');
+      const successEl = document.getElementById('pwSuccess');
+
+      const current = document.getElementById('pwCurrent').value;
+      const newPw = document.getElementById('pwNew').value;
+      const confirm = document.getElementById('pwConfirm').value;
+
+      errEl.style.display = 'none';
+      successEl.style.display = 'none';
+
+      if (!current || !newPw || !confirm) {
+        errEl.textContent = '❌ Please fill in all fields.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      if (newPw !== confirm) {
+        errEl.textContent = '❌ New passwords do not match.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Updating...';
+
+      try {
+        await axios.patch('/api/me/password', {
+          current_password: current,
+          new_password: newPw,
+          new_password_confirmation: confirm,
+        });
+
+        successEl.textContent = '✅ Password updated successfully.';
+        successEl.style.display = 'block';
+
+        document.getElementById('pwCurrent').value = '';
+        document.getElementById('pwNew').value = '';
+        document.getElementById('pwConfirm').value = '';
+
+        setTimeout(() => closePasswordModal(), 1500);
+      } catch (e) {
+        errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to update password.');
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Update Password';
+      }
+    }
+  </script>
 </body>
 </html>

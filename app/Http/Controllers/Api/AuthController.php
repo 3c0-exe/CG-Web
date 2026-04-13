@@ -46,11 +46,35 @@ class AuthController extends Controller
         return response()->json(['success' => true, 'message' => 'Logged out']);
     }
 
-    public function me(Request $request)
+public function me(Request $request)
     {
         return response()->json([
             'success' => true,
-            'user'    => $request->user(), // Removed the student-specific section/yearLevel relationships
+            'user'    => $request->user(),
+        ]);
+    }
+
+    public function changePassword(Request $request)
+    {
+        $request->validate([
+            'current_password'      => 'required',
+            'new_password'          => 'required|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Current password is incorrect.',
+            ], 422);
+        }
+
+        $user->update(['password' => Hash::make($request->new_password)]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password updated successfully.',
         ]);
     }
 }

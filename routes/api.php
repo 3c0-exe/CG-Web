@@ -18,8 +18,9 @@ Route::post('/attendance/scan', [AttendanceController::class, 'scanCard']);
 Route::middleware('auth:sanctum')->group(function () {
 
     // Global Auth / Utilities
-    Route::post('/logout', [AuthController::class, 'logout']);
+Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::patch('/me/password', [AuthController::class, 'changePassword']);
 
     // RFID Management
     Route::post('/rfid/link', [RfidController::class, 'linkCard']);
