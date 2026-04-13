@@ -87,9 +87,22 @@
   <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:460px;">
     <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">Add Professor</h3>
     <div id="profError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+<div class="form-group">
+      <label class="form-label">Title</label>
+      <select class="form-input" id="profTitle">
+        <option value="">Select title...</option>
+        <option value="Prof.">Prof.</option>
+        <option value="Ms.">Ms.</option>
+        <option value="Mrs.">Mrs.</option>
+        <option value="Mr.">Mr.</option>
+        <option value="Dr.">Dr.</option>
+        <option value="Engr.">Engr.</option>
+        <option value="Atty.">Atty.</option>
+      </select>
+    </div>
     <div class="form-group">
       <label class="form-label">Full Name</label>
-      <input type="text" class="form-input" id="profName" placeholder="Prof. Juan Santos">
+      <input type="text" class="form-input" id="profName" placeholder="Juan Santos">
     </div>
     <div class="form-group">
       <label class="form-label">Email</label>
@@ -113,6 +126,19 @@
     
     <input type="hidden" id="editUserId">
     
+<div class="form-group" id="editTitleGroup" style="display:none;">
+      <label class="form-label">Title</label>
+      <select class="form-input" id="editTitle">
+        <option value="">Select title...</option>
+        <option value="Prof.">Prof.</option>
+        <option value="Ms.">Ms.</option>
+        <option value="Mrs.">Mrs.</option>
+        <option value="Mr.">Mr.</option>
+        <option value="Dr.">Dr.</option>
+        <option value="Engr.">Engr.</option>
+        <option value="Atty.">Atty.</option>
+      </select>
+    </div>
     <div class="form-group">
       <label class="form-label">Full Name</label>
       <input type="text" class="form-input" id="editName">
@@ -167,8 +193,8 @@
           <td>
             <div style="display:flex; align-items:center; gap:10px;">
               <div class="user-avatar" style="background:var(--navy-blue); color:var(--white); font-size:11px;">${initials}</div>
-              <div>
-                <div style="font-size:13px; font-weight:600;">${u.name}</div>
+<div>
+                <div style="font-size:13px; font-weight:600;">${u.role === 'professor' && u.title ? u.title + ' ' + u.name : u.name}</div>
                 <div style="font-size:11px; color:var(--gray-500);">${u.email}</div>
               </div>
             </div>
@@ -237,9 +263,10 @@
     } catch (e) { alert('Failed to update status.'); }
   }
 
-  function openAddProfessor() {
+function openAddProfessor() {
     document.getElementById('professorModal').style.display = 'flex';
     document.getElementById('profError').style.display = 'none';
+    document.getElementById('profTitle').value = '';
     document.getElementById('profName').value = '';
     document.getElementById('profEmail').value = '';
     document.getElementById('profPassword').value = '';
@@ -251,6 +278,7 @@
     btn.disabled = true; btn.textContent = 'Saving...'; errEl.style.display = 'none';
     try {
       await axios.post('/api/admin/users/professor', {
+        title: document.getElementById('profTitle').value,
         name: document.getElementById('profName').value,
         email: document.getElementById('profEmail').value,
         password: document.getElementById('profPassword').value,
@@ -272,7 +300,16 @@
     document.getElementById('editName').value = u.name || '';
     document.getElementById('editStudentId').value = u.student_id_number || '';
     document.getElementById('editRfid').value = u.rfid_uid || '';
-    
+
+    const titleGroup = document.getElementById('editTitleGroup');
+    if (u.role === 'professor') {
+      titleGroup.style.display = 'block';
+      document.getElementById('editTitle').value = u.title || '';
+    } else {
+      titleGroup.style.display = 'none';
+      document.getElementById('editTitle').value = '';
+    }
+
     document.getElementById('editError').style.display = 'none';
     document.getElementById('editUserModal').style.display = 'flex';
   }
@@ -286,6 +323,7 @@
     
     try {
       await axios.patch(`/api/admin/users/${id}`, {
+        title: document.getElementById('editTitle').value,
         name: document.getElementById('editName').value,
         student_id_number: document.getElementById('editStudentId').value,
         rfid_uid: document.getElementById('editRfid').value,

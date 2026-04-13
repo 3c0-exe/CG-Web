@@ -45,15 +45,17 @@ class AdminController extends Controller
         return response()->json(['success' => true, 'users' => $query->get()]);
     }
 
-    public function createProfessor(Request $request)
+public function createProfessor(Request $request)
     {
         $request->validate([
+            'title'    => 'required|in:Prof.,Ms.,Mrs.,Mr.,Dr.,Engr.,Atty.',
             'name'     => 'required|string',
             'email'    => 'required|email|unique:users',
             'password' => 'required|min:8',
         ]);
 
         $professor = User::create([
+            'title'    => $request->title,
             'name'     => $request->name,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
@@ -76,16 +78,22 @@ class AdminController extends Controller
         return response()->json(['success' => true, 'user' => $user]);
     }
 
-    public function updateUser(Request $request, $userId)
+public function updateUser(Request $request, $userId)
     {
-        $request->validate([
+        $user = User::findOrFail($userId);
+
+        $rules = [
             'name'              => 'required|string',
             'student_id_number' => 'nullable|string',
             'rfid_uid'          => 'nullable|string',
-        ]);
+        ];
 
-        $user = User::findOrFail($userId);
-        
+        if ($user->role === 'professor') {
+            $rules['title'] = 'required|in:Prof.,Ms.,Mrs.,Mr.,Dr.,Engr.,Atty.';
+        }
+
+        $request->validate($rules);
+
         if ($request->rfid_uid && $request->rfid_uid !== $user->rfid_uid) {
             $exists = User::where('rfid_uid', $request->rfid_uid)->exists();
             if ($exists) {
@@ -93,11 +101,17 @@ class AdminController extends Controller
             }
         }
 
-        $user->update([
+        $fields = [
             'name'              => $request->name,
             'student_id_number' => $request->student_id_number,
             'rfid_uid'          => $request->rfid_uid,
-        ]);
+        ];
+
+        if ($user->role === 'professor') {
+            $fields['title'] = $request->title;
+        }
+
+        $user->update($fields);
 
         return response()->json(['success' => true, 'user' => $user]);
     }
