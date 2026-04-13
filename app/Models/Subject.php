@@ -8,7 +8,13 @@ class Subject extends Model
 {
     protected $fillable = [
         'name', 'code', 'year_level_id', 'section_id',
-        'professor_id', 'class_code', 'allow_guests', 'late_threshold_minutes'
+        'professor_id', 'class_code', 'allow_guests', 'late_threshold_minutes',
+        'schedule_days', 'schedule_start_time', 'schedule_end_time'
+    ];
+
+    protected $casts = [
+        'schedule_days' => 'array',
+        'allow_guests'  => 'boolean',
     ];
 
     public function yearLevel()

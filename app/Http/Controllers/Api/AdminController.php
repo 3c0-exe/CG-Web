@@ -196,9 +196,17 @@ public function updateUser(Request $request, $userId)
             'professor_id'           => 'required|exists:users,id',
             'allow_guests'           => 'boolean',
             'late_threshold_minutes' => 'integer|min:1',
+            'schedule_days'          => 'nullable|array',
+            'schedule_days.*'        => 'in:Mon,Tue,Wed,Thu,Fri,Sat,Sun',
+            'schedule_start_time'    => 'nullable|date_format:H:i',
+            'schedule_end_time'      => 'nullable|date_format:H:i|after:schedule_start_time',
         ]);
 
-        $subject = Subject::create($request->all());
+        $subject = Subject::create($request->only([
+            'name', 'year_level_id', 'section_id', 'professor_id',
+            'allow_guests', 'late_threshold_minutes',
+            'schedule_days', 'schedule_start_time', 'schedule_end_time',
+        ]));
 
         return response()->json(['success' => true, 'subject' => $subject->load('professor', 'section', 'yearLevel')], 201);
     }
@@ -212,16 +220,17 @@ public function updateUser(Request $request, $userId)
             'professor_id'           => 'required|exists:users,id',
             'allow_guests'           => 'boolean',
             'late_threshold_minutes' => 'integer|min:1',
+            'schedule_days'          => 'nullable|array',
+            'schedule_days.*'        => 'in:Mon,Tue,Wed,Thu,Fri,Sat,Sun',
+            'schedule_start_time'    => 'nullable|date_format:H:i',
+            'schedule_end_time'      => 'nullable|date_format:H:i|after:schedule_start_time',
         ]);
 
         $subject = Subject::findOrFail($subjectId);
         $subject->update($request->only([
-            'name',
-            'year_level_id',
-            'section_id',
-            'professor_id',
-            'allow_guests',
-            'late_threshold_minutes',
+            'name', 'year_level_id', 'section_id', 'professor_id',
+            'allow_guests', 'late_threshold_minutes',
+            'schedule_days', 'schedule_start_time', 'schedule_end_time',
         ]));
 
         return response()->json(['success' => true, 'subject' => $subject->load('professor', 'section', 'yearLevel')]);

@@ -52,6 +52,7 @@
               <th>Subject</th>
               <th>Section</th>
               <th>Professor</th>
+              <th>Schedule</th>
               <th>Late Threshold</th>
               <th>Guests</th>
               <th>Actions</th>
@@ -94,6 +95,39 @@
       <select class="form-select" id="subjProfessor">
         <option value="">Select professor...</option>
       </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Schedule Days</label>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;">
+        <label id="dayLabelMon" style="display:flex; align-items:center; gap:6px; font-size:13px; padding:6px 12px; border:1px solid var(--gray-200); border-radius:6px; cursor:pointer;">
+          <input type="checkbox" value="Mon" onchange="updateDayLabel('Mon')"> Mon
+        </label>
+        <label id="dayLabelTue" style="display:flex; align-items:center; gap:6px; font-size:13px; padding:6px 12px; border:1px solid var(--gray-200); border-radius:6px; cursor:pointer;">
+          <input type="checkbox" value="Tue" onchange="updateDayLabel('Tue')"> Tue
+        </label>
+        <label id="dayLabelWed" style="display:flex; align-items:center; gap:6px; font-size:13px; padding:6px 12px; border:1px solid var(--gray-200); border-radius:6px; cursor:pointer;">
+          <input type="checkbox" value="Wed" onchange="updateDayLabel('Wed')"> Wed
+        </label>
+        <label id="dayLabelThu" style="display:flex; align-items:center; gap:6px; font-size:13px; padding:6px 12px; border:1px solid var(--gray-200); border-radius:6px; cursor:pointer;">
+          <input type="checkbox" value="Thu" onchange="updateDayLabel('Thu')"> Thu
+        </label>
+        <label id="dayLabelFri" style="display:flex; align-items:center; gap:6px; font-size:13px; padding:6px 12px; border:1px solid var(--gray-200); border-radius:6px; cursor:pointer;">
+          <input type="checkbox" value="Fri" onchange="updateDayLabel('Fri')"> Fri
+        </label>
+        <label id="dayLabelSat" style="display:flex; align-items:center; gap:6px; font-size:13px; padding:6px 12px; border:1px solid var(--gray-200); border-radius:6px; cursor:pointer;">
+          <input type="checkbox" value="Sat" onchange="updateDayLabel('Sat')"> Sat
+        </label>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-group">
+        <label class="form-label">Start Time</label>
+        <input type="time" class="form-input" id="subjStartTime">
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Time</label>
+        <input type="time" class="form-input" id="subjEndTime">
+      </div>
     </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
       <div class="form-group">
@@ -149,10 +183,18 @@
   function renderTable(subjects) {
     if (subjects.length === 0) {
       document.getElementById('subjectsTable').innerHTML =
-        '<tr><td colspan="6" style="text-align:center; padding:40px; color:var(--gray-400);">No subjects found.</td></tr>';
+        '<tr><td colspan="7" style="text-align:center; padding:40px; color:var(--gray-400);">No subjects found.</td></tr>';
       return;
     }
-    document.getElementById('subjectsTable').innerHTML = subjects.map(s => `
+    document.getElementById('subjectsTable').innerHTML = subjects.map(s => {
+      const days = Array.isArray(s.schedule_days) && s.schedule_days.length
+        ? s.schedule_days.join(', ')
+        : '–';
+      const fmt = t => t ? t.slice(0,5) : null;
+      const time = fmt(s.schedule_start_time) && fmt(s.schedule_end_time)
+        ? `${fmt(s.schedule_start_time)} – ${fmt(s.schedule_end_time)}`
+        : '–';
+      return `
       <tr>
         <td>
           <div style="font-size:13px; font-weight:600; color:var(--gray-900);">${s.name}</div>
@@ -163,6 +205,10 @@
           <div style="font-size:13px; font-weight:500;">${s.professor?.name || '–'}</div>
           <div style="font-size:11px; color:var(--gray-500);">${s.professor?.email || ''}</div>
         </td>
+        <td>
+          <div style="font-size:13px;">${days}</div>
+          <div style="font-size:11px; color:var(--gray-500);">${time}</div>
+        </td>
         <td style="font-size:13px;">${s.late_threshold_minutes} min</td>
         <td><span class="badge ${s.allow_guests ? 'success' : 'neutral'}">${s.allow_guests ? 'Yes' : 'No'}</span></td>
         <td>
@@ -171,7 +217,8 @@
             <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSubject(${s.id}, '${s.name.replace(/'/g,"\\'")}')">🗑️</button>
           </div>
         </td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
   }
 
   function filterSubjects(q) {
@@ -229,6 +276,28 @@
     document.getElementById('editSubjectId').value = '';
   }
 
+  function updateDayLabel(day) {
+    const label = document.getElementById('dayLabel' + day);
+    const checked = label.querySelector('input').checked;
+    label.style.borderColor = checked ? 'var(--navy-blue)' : 'var(--gray-200)';
+    label.style.background = checked ? 'rgba(30,58,138,0.06)' : '';
+    label.style.color = checked ? 'var(--navy-blue)' : '';
+    label.style.fontWeight = checked ? '600' : '';
+  }
+
+  function getSelectedDays() {
+    return ['Mon','Tue','Wed','Thu','Fri','Sat']
+      .filter(d => document.querySelector(`#dayLabel${d} input`).checked);
+  }
+
+  function setSelectedDays(days) {
+    ['Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d => {
+      const input = document.querySelector(`#dayLabel${d} input`);
+      input.checked = Array.isArray(days) && days.includes(d);
+      updateDayLabel(d);
+    });
+  }
+
   async function openAddSubject() {
     editMode = false;
     document.getElementById('modalTitle').textContent = '📚 Add New Subject';
@@ -237,6 +306,9 @@
     document.getElementById('subjName').value = '';
     document.getElementById('subjLateThreshold').value = '15';
     document.getElementById('subjAllowGuests').value = '1';
+    document.getElementById('subjStartTime').value = '';
+    document.getElementById('subjEndTime').value = '';
+    setSelectedDays([]);
     document.getElementById('subjectError').style.display = 'none';
 
     try { await loadFormData(); populateFormDropdowns(); } 
@@ -256,6 +328,9 @@
     document.getElementById('subjName').value = s.name;
     document.getElementById('subjLateThreshold').value = s.late_threshold_minutes;
     document.getElementById('subjAllowGuests').value = s.allow_guests ? '1' : '0';
+    document.getElementById('subjStartTime').value = s.schedule_start_time ? s.schedule_start_time.slice(0,5) : '';
+    document.getElementById('subjEndTime').value = s.schedule_end_time ? s.schedule_end_time.slice(0,5) : '';
+    setSelectedDays(s.schedule_days || []);
     document.getElementById('subjectError').style.display = 'none';
 
     try { await loadFormData(); populateFormDropdowns(s.year_level_id, s.section_id, s.professor_id); } 
@@ -287,6 +362,9 @@
       professor_id: professorId,
       late_threshold_minutes: lateThreshold,
       allow_guests: allowGuests == '1',
+      schedule_days: getSelectedDays(),
+      schedule_start_time: document.getElementById('subjStartTime').value || null,
+      schedule_end_time: document.getElementById('subjEndTime').value || null,
     };
 
     btn.disabled = true;
