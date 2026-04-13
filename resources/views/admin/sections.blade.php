@@ -27,6 +27,7 @@
       <p class="topbar-subtitle">Manage year levels and sections</p>
     </div>
     <div class="topbar-right">
+      <button class="btn btn-ghost" onclick="openAddRoom()">🚪 Add Room</button>
       <button class="btn btn-primary" onclick="openAddSection()">+ Add Section</button>
     </div>
   </div>
@@ -34,6 +35,26 @@
   <div class="content">
     <div id="sectionsGrid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:20px;">
       <div style="text-align:center; padding:40px; color:var(--gray-400);">Loading...</div>
+    </div>
+
+    <div class="section" style="margin-top:32px;">
+      <div class="section-header">
+        <h2 class="section-title">🚪 Rooms</h2>
+        <button class="btn btn-primary btn-sm" onclick="openAddRoom()">+ Add Room</button>
+      </div>
+      <div class="table-wrapper" style="padding:0;">
+        <table>
+          <thead>
+            <tr>
+              <th>Room Name</th>
+              <th style="width:140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="roomsTable">
+            <tr><td colspan="2" style="text-align:center; padding:32px; color:var(--gray-400);">Loading rooms...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </main>
@@ -80,6 +101,39 @@
     <div style="display:flex; gap:12px; margin-top:8px;">
       <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('editModal').style.display='none'">Cancel</button>
       <button class="btn btn-primary" style="flex:2" id="editBtn" onclick="updateSection()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Room Modal -->
+<div id="addRoomModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:400px;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">🚪 Add Room</h3>
+    <div id="addRoomError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+    <div class="form-group">
+      <label class="form-label">Room Name</label>
+      <input type="text" class="form-input" id="addRoomName" placeholder="e.g. Room 101">
+    </div>
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('addRoomModal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="addRoomBtn" onclick="saveRoom()">Add Room</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Room Modal -->
+<div id="editRoomModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:400px;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">✏️ Edit Room</h3>
+    <div id="editRoomError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+    <input type="hidden" id="editRoomId">
+    <div class="form-group">
+      <label class="form-label">Room Name</label>
+      <input type="text" class="form-input" id="editRoomName">
+    </div>
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('editRoomModal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="editRoomBtn" onclick="updateRoom()">Save Changes</button>
     </div>
   </div>
 </div>
@@ -222,6 +276,104 @@
 
   function logout() { axios.post('/api/logout').finally(() => { localStorage.clear(); window.location.href = '/login'; }); }
 
+  // ─── Rooms ────────────────────────────────────────────────────────────────
+
+  let allRooms = [];
+
+  async function loadRooms() {
+    try {
+      const res = await axios.get('/api/admin/rooms');
+      allRooms = res.data.rooms;
+      renderRooms();
+    } catch (e) {
+      document.getElementById('roomsTable').innerHTML =
+        '<tr><td colspan="2" style="text-align:center; color:var(--red); padding:24px;">Failed to load rooms.</td></tr>';
+    }
+  }
+
+  function renderRooms() {
+    if (allRooms.length === 0) {
+      document.getElementById('roomsTable').innerHTML =
+        '<tr><td colspan="2" style="text-align:center; padding:32px; color:var(--gray-400);">No rooms yet.</td></tr>';
+      return;
+    }
+    document.getElementById('roomsTable').innerHTML = allRooms.map(r => `
+      <tr>
+        <td style="font-size:14px; font-weight:500;">🚪 ${r.name}</td>
+        <td>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="openEditRoom(${r.id}, '${r.name.replace(/'/g,"\\'")}')">✏️ Edit</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteRoom(${r.id}, '${r.name.replace(/'/g,"\\'")}')">🗑️</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  function openAddRoom() {
+    document.getElementById('addRoomName').value = '';
+    document.getElementById('addRoomError').style.display = 'none';
+    document.getElementById('addRoomModal').style.display = 'flex';
+  }
+
+  async function saveRoom() {
+    const btn = document.getElementById('addRoomBtn');
+    const errEl = document.getElementById('addRoomError');
+    const name = document.getElementById('addRoomName').value.trim();
+    if (!name) {
+      errEl.textContent = '❌ Please enter a room name.';
+      errEl.style.display = 'block';
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Adding...'; errEl.style.display = 'none';
+    try {
+      await axios.post('/api/admin/rooms', { name });
+      document.getElementById('addRoomModal').style.display = 'none';
+      await loadRooms();
+    } catch (e) {
+      errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to add room.');
+      errEl.style.display = 'block';
+    } finally { btn.disabled = false; btn.textContent = 'Add Room'; }
+  }
+
+  function openEditRoom(id, name) {
+    document.getElementById('editRoomId').value = id;
+    document.getElementById('editRoomName').value = name;
+    document.getElementById('editRoomError').style.display = 'none';
+    document.getElementById('editRoomModal').style.display = 'flex';
+  }
+
+  async function updateRoom() {
+    const btn = document.getElementById('editRoomBtn');
+    const errEl = document.getElementById('editRoomError');
+    const id = document.getElementById('editRoomId').value;
+    const name = document.getElementById('editRoomName').value.trim();
+    if (!name) {
+      errEl.textContent = '❌ Please enter a room name.';
+      errEl.style.display = 'block';
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Saving...'; errEl.style.display = 'none';
+    try {
+      await axios.patch(`/api/admin/rooms/${id}`, { name });
+      document.getElementById('editRoomModal').style.display = 'none';
+      await loadRooms();
+    } catch (e) {
+      errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to update room.');
+      errEl.style.display = 'block';
+    } finally { btn.disabled = false; btn.textContent = 'Save Changes'; }
+  }
+
+  async function deleteRoom(id, name) {
+    if (!confirm(`Delete room "${name}"? This cannot be undone.`)) return;
+    try {
+      await axios.delete(`/api/admin/rooms/${id}`);
+      await loadRooms();
+    } catch (e) {
+      alert('Failed to delete: ' + (e.response?.data?.message || 'Unknown error'));
+    }
+  }
+
   loadSections();
+  loadRooms();
 </script>
 @endsection

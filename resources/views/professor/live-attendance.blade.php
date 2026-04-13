@@ -71,6 +71,10 @@
             <div style="font-size:14px; font-weight:600; color:var(--white);" id="sessionSubject">–</div>
           </div>
           <div>
+            <div style="font-size:11px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px;">Room</div>
+            <div style="font-size:14px; font-weight:600; color:var(--white);" id="sessionRoom">–</div>
+          </div>
+          <div>
             <div style="font-size:11px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:2px;">Elapsed</div>
             <div style="font-size:14px; font-weight:600; color:var(--white);" id="sessionTimer">00:00:00</div>
           </div>
@@ -130,6 +134,7 @@
 
   const urlParams = new URLSearchParams(window.location.search);
   const sessionId = urlParams.get('session');
+console.log('sessionId from URL:', sessionId);
   let sessionData = null;
   let timerInterval = null;
   let pollInterval = null;
@@ -155,13 +160,16 @@
     try {
       // Updated to the secure professor route
       const res = await axios.get(`/api/professor/attendance/live/${sessionId}`);
+      console.log('live feed response:', res.data);
       const { session, records } = res.data;
       sessionData = session;
 
+      console.log('showing active session');
       document.getElementById('activeSession').style.display = 'block';
       document.getElementById('noSession').style.display = 'none';
       document.getElementById('sessionSubject').textContent = session.subject?.name || '–';
-      document.getElementById('sessionInfo').textContent = `${session.subject?.name || ''} · ${session.subject?.section?.name || ''} · Started ${new Date(session.started_at).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })}`;
+      document.getElementById('sessionRoom').textContent = session.room?.name || '–';
+      document.getElementById('sessionInfo').textContent = `${session.subject?.name || ''} · ${session.subject?.section?.name || ''} · ${session.room?.name || 'No room'} · Started ${new Date(session.started_at).toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' })}`;
 
       if (!timerInterval) startTimer(session.started_at);
 

@@ -17,10 +17,11 @@ Route::post('/attendance/scan', [AttendanceController::class, 'scanCard']);
 // Authenticated routes
 Route::middleware('auth:sanctum')->group(function () {
 
-    // Global Auth / Utilities
-Route::post('/logout', [AuthController::class, 'logout']);
+// Global Auth / Utilities
+    Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::patch('/me/password', [AuthController::class, 'changePassword']);
+    Route::get('/rooms', [AdminController::class, 'allRooms']);
 
     // RFID Management
     Route::post('/rfid/link', [RfidController::class, 'linkCard']);
@@ -53,6 +54,12 @@ Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/subjects', [AdminController::class, 'createSubject']);
         Route::patch('/subjects/{subjectId}', [AdminController::class, 'updateSubject']);
         Route::delete('/subjects/{subjectId}', [AdminController::class, 'deleteSubject']);
+
+        // Rooms
+        Route::get('/rooms', [AdminController::class, 'allRooms']);
+        Route::post('/rooms', [AdminController::class, 'createRoom']);
+        Route::patch('/rooms/{roomId}', [AdminController::class, 'updateRoom']);
+        Route::delete('/rooms/{roomId}', [AdminController::class, 'deleteRoom']);
 
         // Sections & Year Levels
         Route::get('/year-levels', [AdminController::class, 'yearLevels']);

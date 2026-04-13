@@ -80,7 +80,7 @@ class AttendanceController extends Controller
 
         return response()->json([
             'success' => true,
-            'session' => $session->load('subject'),
+            'session' => $session->load('subject.section', 'room'),
             'records' => $records,
         ]);
     }

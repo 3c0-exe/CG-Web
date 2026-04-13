@@ -36,6 +36,25 @@
     </div>
   </div>
 </main>
+<!-- Start Session Modal -->
+<div id="startSessionModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:400px;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:6px;">▶ Start Session</h3>
+    <p style="font-size:13px; color:var(--gray-500); margin-bottom:20px;" id="startSessionSubjectName">–</p>
+    <div id="startSessionError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+    <div class="form-group">
+      <label class="form-label">Room <span style="color:var(--red)">*</span></label>
+      <select class="form-select" id="startSessionRoom">
+        <option value="">Select room...</option>
+      </select>
+    </div>
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('startSessionModal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="startSessionBtn" onclick="confirmStartSession()">Start Session</button>
+    </div>
+  </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -57,7 +76,8 @@
         axios.get('/api/professor/session/active'),
       ]);
       
-      const mySubjects = subjectsRes.data.subjects;
+      mySubjectsData = subjectsRes.data.subjects;
+      const mySubjects = mySubjectsData;
       const activeSessions = activeRes.data.sessions;
 
       if (mySubjects.length === 0) {
@@ -104,13 +124,56 @@
     }
   }
 
+  let pendingSubjectId = null;
+  let mySubjectsData = [];
+
   async function startSession(subjectId) {
+    pendingSubjectId = subjectId;
+    const subject = mySubjectsData.find(s => s.id === subjectId);
+    document.getElementById('startSessionSubjectName').textContent = subject?.name || '–';
+    document.getElementById('startSessionError').style.display = 'none';
+    document.getElementById('startSessionBtn').disabled = false;
+    document.getElementById('startSessionBtn').textContent = 'Start Session';
+
     try {
-      // Updated route prefix here too!
-      const res = await axios.post('/api/professor/session/start', { subject_id: subjectId });
+      const res = await axios.get('/api/rooms');
+      const rooms = res.data.rooms;
+      document.getElementById('startSessionRoom').innerHTML =
+        '<option value="">Select room...</option>' +
+        rooms.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+    } catch (e) {
+      document.getElementById('startSessionRoom').innerHTML = '<option value="">Failed to load rooms</option>';
+    }
+
+    document.getElementById('startSessionModal').style.display = 'flex';
+  }
+
+  async function confirmStartSession() {
+    const btn = document.getElementById('startSessionBtn');
+    const errEl = document.getElementById('startSessionError');
+    const roomId = document.getElementById('startSessionRoom').value;
+
+    if (!roomId) {
+      errEl.textContent = '❌ Please select a room.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Starting...';
+    errEl.style.display = 'none';
+
+    try {
+      const res = await axios.post('/api/professor/session/start', {
+        subject_id: pendingSubjectId,
+        room_id: roomId,
+      });
       window.location.href = '/professor/live-attendance?session=' + res.data.session.session_id;
     } catch (e) {
-      alert(e.response?.data?.message || 'Failed to start session.');
+      errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to start session.');
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Start Session';
     }
   }
 

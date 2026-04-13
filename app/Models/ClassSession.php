@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ClassSession extends Model
 {
     protected $fillable = [
-        'session_id', 'subject_id', 'professor_id',
+        'session_id', 'subject_id', 'professor_id', 'room_id',
         'started_at', 'ended_at', 'status',
         'present_count', 'absent_count', 'late_count'
     ];
@@ -30,5 +30,10 @@ class ClassSession extends Model
     public function attendanceRecords()
     {
         return $this->hasMany(AttendanceRecord::class, 'session_id');
+    }
+
+    public function room()
+    {
+        return $this->belongsTo(Room::class);
     }
 }

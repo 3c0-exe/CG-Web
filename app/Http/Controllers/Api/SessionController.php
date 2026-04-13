@@ -16,6 +16,7 @@ class SessionController extends Controller
     {
         $request->validate([
             'subject_id' => 'required|exists:subjects,id',
+            'room_id'    => 'required|exists:rooms,id',
         ]);
 
         // Ensure the professor actually owns the subject they are trying to start
@@ -39,6 +40,7 @@ class SessionController extends Controller
             'session_id'   => strtoupper(Str::random(8)),
             'subject_id'   => $request->subject_id,
             'professor_id' => $request->user()->id,
+            'room_id'      => $request->room_id,
             'started_at'   => now(),
             'status'       => 'active',
         ]);
@@ -96,7 +98,7 @@ class SessionController extends Controller
     {
         $sessions = ClassSession::where('professor_id', $request->user()->id)
             ->where('status', 'active')
-            ->with('subject')
+            ->with('subject', 'room')
             ->get();
 
         return response()->json(['success' => true, 'sessions' => $sessions]);

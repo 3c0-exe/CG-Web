@@ -347,4 +347,37 @@ public function updateUser(Request $request, $userId)
         Section::findOrFail($sectionId)->delete();
         return response()->json(['success' => true, 'message' => 'Section deleted']);
     }
+
+    // ─── Room Management ──────────────────────────────────────────────────────
+
+    public function allRooms()
+    {
+        return response()->json(['success' => true, 'rooms' => \App\Models\Room::orderBy('name')->get()]);
+    }
+
+    public function createRoom(Request $request)
+    {
+        $request->validate(['name' => 'required|string|unique:rooms,name']);
+        $room = \App\Models\Room::create(['name' => $request->name]);
+        return response()->json(['success' => true, 'room' => $room], 201);
+    }
+
+    public function updateRoom(Request $request, $roomId)
+    {
+        $request->validate(['name' => 'required|string|unique:rooms,name,' . $roomId]);
+        $room = \App\Models\Room::findOrFail($roomId);
+        $room->update(['name' => $request->name]);
+        return response()->json(['success' => true, 'room' => $room]);
+    }
+
+    public function deleteRoom($roomId)
+    {
+        $room = \App\Models\Room::findOrFail($roomId);
+        $active = \App\Models\ClassSession::where('room_id', $roomId)->where('status', 'active')->exists();
+        if ($active) {
+            return response()->json(['success' => false, 'message' => 'Cannot delete a room with an active session.'], 400);
+        }
+        $room->delete();
+        return response()->json(['success' => true, 'message' => 'Room deleted']);
+    }
 }
