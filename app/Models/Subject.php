@@ -37,6 +37,13 @@ class Subject extends Model
         return $this->hasMany(Enrollment::class);
     }
 
+    public function enrolledStudents()
+    {
+        return $this->belongsToMany(User::class, 'enrollments', 'subject_id', 'student_id')
+                    ->withPivot('enrollment_type')
+                    ->withTimestamps();
+    }
+
     public function sessions()
     {
         return $this->hasMany(ClassSession::class);

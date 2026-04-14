@@ -185,6 +185,8 @@
     document.getElementById('startSessionError').style.display = 'none';
     document.getElementById('startSessionBtn').disabled = false;
     document.getElementById('startSessionBtn').textContent = 'Start Session';
+    document.getElementById('startSessionBtn').style.display = '';
+    scheduleOverride = false;
 
     try {
       const res = await axios.get('/api/rooms/availability');
@@ -205,6 +207,8 @@
     document.getElementById('startSessionModal').style.display = 'flex';
   }
 
+  let scheduleOverride = false;
+
   async function confirmStartSession() {
     const btn = document.getElementById('startSessionBtn');
     const errEl = document.getElementById('startSessionError');
@@ -224,14 +228,56 @@
       const res = await axios.post('/api/professor/session/start', {
         subject_id: pendingSubjectId,
         room_id: roomId,
+        override: scheduleOverride,
       });
       window.location.href = '/professor/live-attendance?session=' + res.data.session.session_id;
     } catch (e) {
-      errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to start session.');
+      const data = e.response?.data;
+
+      // Soft warning — show with override option
+      if (data?.warning) {
+        errEl.style.background = 'rgba(252,211,77,0.1)';
+        errEl.style.borderColor = 'rgba(252,211,77,0.4)';
+        errEl.style.color = 'var(--amber)';
+        errEl.innerHTML = `${data.message} <br><br>
+          <button class="btn btn-primary btn-sm" onclick="proceedWithOverride()" style="margin-right:8px;">Yes, Start Anyway</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelOverride()">Cancel</button>`;
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.style.display = 'none';
+        return;
+      }
+
+      // Hard error
+      errEl.style.background = 'rgba(239,68,68,0.08)';
+      errEl.style.borderColor = 'rgba(239,68,68,0.2)';
+      errEl.style.color = 'var(--red)';
+      errEl.textContent = '❌ ' + (data?.message || 'Failed to start session.');
       errEl.style.display = 'block';
       btn.disabled = false;
       btn.textContent = 'Start Session';
     }
+  }
+
+  function proceedWithOverride() {
+    scheduleOverride = true;
+    document.getElementById('startSessionBtn').style.display = '';
+    document.getElementById('startSessionError').style.display = 'none';
+    confirmStartSession();
+  }
+
+  function cancelOverride() {
+    scheduleOverride = false;
+    document.getElementById('startSessionBtn').style.display = '';
+    document.getElementById('startSessionError').style.display = 'none';
+    document.getElementById('startSessionBtn').disabled = false;
+    document.getElementById('startSessionBtn').textContent = 'Start Session';
+    document.getElementById('startSessionBtn').style.display = '';
+    scheduleOverride = false;
+    document.getElementById('startSessionBtn').style.display = '';
+    scheduleOverride = false;
+    document.getElementById('startSessionBtn').style.display = '';
+    scheduleOverride = false;
   }
 
   function logout() { axios.post('/api/logout').finally(() => { localStorage.clear(); window.location.href = '/login'; }); }

@@ -553,4 +553,52 @@ public function updateUser(Request $request, $userId)
         $room->delete();
         return response()->json(['success' => true, 'message' => 'Room deleted']);
     }
+    // ─── Subject Enrollment ───────────────────────────────────────────────────
+
+    public function subjectEnrollments($subjectId)
+    {
+        $subject = Subject::findOrFail($subjectId);
+        $enrolled = $subject->enrolledStudents()->get();
+        return response()->json(['success' => true, 'students' => $enrolled]);
+    }
+
+    public function enrollStudents(Request $request, $subjectId)
+    {
+        $request->validate([
+            'student_ids'   => 'required|array',
+            'student_ids.*' => 'exists:users,id',
+        ]);
+
+        $subject = Subject::findOrFail($subjectId);
+
+        $syncData = collect($request->student_ids)->mapWithKeys(fn($id) => [
+            $id => ['enrollment_type' => 'regular']
+        ])->toArray();
+
+        // syncWithoutDetaching so we don't remove existing enrollments
+        $subject->enrolledStudents()->syncWithoutDetaching($syncData);
+
+        return response()->json(['success' => true, 'message' => count($request->student_ids) . ' student(s) enrolled.']);
+    }
+
+    public function unenrollStudent($subjectId, $studentId)
+    {
+        $subject = Subject::findOrFail($subjectId);
+        $subject->enrolledStudents()->detach($studentId);
+        return response()->json(['success' => true, 'message' => 'Student removed from subject.']);
+    }
+
+    public function availableStudentsForSubject($subjectId)
+    {
+        $subject = Subject::findOrFail($subjectId);
+        $enrolledIds = $subject->enrolledStudents()->pluck('users.id');
+
+        // All students not yet enrolled in this subject
+        $students = User::where('role', 'student')
+            ->whereNotIn('id', $enrolledIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'student_id_number', 'section_id']);
+
+        return response()->json(['success' => true, 'students' => $students]);
+    }
 }

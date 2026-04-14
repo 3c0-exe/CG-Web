@@ -59,6 +59,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/subjects/{subjectId}', [AdminController::class, 'updateSubject']);
         Route::delete('/subjects/{subjectId}', [AdminController::class, 'deleteSubject']);
 
+        // Subject Enrollments
+        Route::get('/subjects/{subjectId}/enrollments', [AdminController::class, 'subjectEnrollments']);
+        Route::get('/subjects/{subjectId}/available-students', [AdminController::class, 'availableStudentsForSubject']);
+        Route::post('/subjects/{subjectId}/enroll', [AdminController::class, 'enrollStudents']);
+        Route::delete('/subjects/{subjectId}/unenroll/{studentId}', [AdminController::class, 'unenrollStudent']);
+
         // Rooms
         Route::get('/rooms', [AdminController::class, 'allRooms']);
         Route::post('/rooms', [AdminController::class, 'createRoom']);

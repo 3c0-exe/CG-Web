@@ -33,14 +33,18 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Card not registered'], 404);
         }
 
-        // Check if this student belongs to the session's section
+        // Check if this student belongs to the session's section OR is explicitly enrolled in the subject
         $sessionSectionId = $session->subject->section_id;
 
         $belongsToSection = ($student->section_id == $sessionSectionId)
-            || $student->sections()->where('section_id', $sessionSectionId)->exists();
+            || $student->sections()->where('sections.id', $sessionSectionId)->exists();
 
-        if (!$belongsToSection) {
-            return response()->json(['success' => false, 'message' => 'Student not enrolled in this section'], 403);
+        $enrolledInSubject = \App\Models\Enrollment::where('subject_id', $session->subject_id)
+            ->where('student_id', $student->id)
+            ->exists();
+
+        if (!$belongsToSection && !$enrolledInSubject) {
+            return response()->json(['success' => false, 'message' => 'Student not enrolled in this subject or section'], 403);
         }
 
         // Prevent duplicate scan

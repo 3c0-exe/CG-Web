@@ -17,6 +17,7 @@ class SessionController extends Controller
         $request->validate([
             'subject_id' => 'required|exists:subjects,id',
             'room_id'    => 'required|exists:rooms,id',
+            'override'   => 'boolean',
         ]);
 
         // Ensure the professor actually owns the subject they are trying to start
@@ -36,6 +37,54 @@ class SessionController extends Controller
             return response()->json(['success' => false, 'message' => 'Session already active for this subject'], 400);
         }
 
+        // ── Schedule validation ───────────────────────────────────────────────
+
+        // Block if no schedule set
+        if (empty($subject->schedule_days) || !$subject->schedule_start_time || !$subject->schedule_end_time) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This subject has no schedule set. Please ask your admin to add a schedule before starting a session.',
+            ], 422);
+        }
+
+        $now          = now();
+        $dayMap       = [0 => 'Sun', 1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat'];
+        $today        = $dayMap[$now->dayOfWeek];
+        $scheduleDays = is_array($subject->schedule_days) ? $subject->schedule_days : json_decode($subject->schedule_days, true);
+
+        $wrongDay    = !in_array($today, $scheduleDays);
+        $startTime   = \Carbon\Carbon::createFromTimeString($subject->schedule_start_time);
+        $endTime     = \Carbon\Carbon::createFromTimeString($subject->schedule_end_time);
+        $beforeStart = $now->lt($startTime);
+        $afterEnd    = $now->gt($endTime);
+
+        // Soft warnings — professor can override
+        if (!$request->override) {
+            if ($wrongDay) {
+                return response()->json([
+                    'success'  => false,
+                    'warning'  => true,
+                    'message'  => "⚠️ Today ({$today}) is not a scheduled day for this subject (" . implode(', ', $scheduleDays) . "). Start anyway?",
+                ], 422);
+            }
+
+            if ($beforeStart) {
+                $formatted = \Carbon\Carbon::createFromTimeString($subject->schedule_start_time)->format('g:i A');
+                return response()->json([
+                    'success' => false,
+                    'warning' => true,
+                    'message' => "⚠️ This subject is scheduled to start at {$formatted}. Start early anyway?",
+                ], 422);
+            }
+        }
+
+        // After end time — session starts but late_override flag noted
+        // Students will still be marked based on late_threshold_minutes from session start
+        // but we flag the session started after schedule end
+        $startedAfterEnd = $afterEnd;
+
+        // ── Create session ────────────────────────────────────────────────────
+
         $session = ClassSession::create([
             'session_id'   => strtoupper(Str::random(8)),
             'subject_id'   => $request->subject_id,
@@ -52,8 +101,9 @@ class SessionController extends Controller
         }
 
         return response()->json([
-            'success' => true,
-            'session' => $session,
+            'success'           => true,
+            'session'           => $session,
+            'started_after_end' => $startedAfterEnd,
         ]);
     }
 
@@ -73,18 +123,26 @@ class SessionController extends Controller
         $present = AttendanceRecord::where('session_id', $session->id)->where('status', 'present')->count();
         $late    = AttendanceRecord::where('session_id', $session->id)->where('status', 'late')->count();
         
-        $sectionId = $session->subject->section_id;
+        $sectionId  = $session->subject->section_id;
+        $subjectId  = $session->subject_id;
 
-        $totalStudentsInSection = \App\Models\User::where('role', 'student')
+        // Students in section (regular + irregular)
+        $sectionStudentIds = \App\Models\User::where('role', 'student')
             ->where(function ($query) use ($sectionId) {
                 $query->where('section_id', $sectionId)
                       ->orWhereHas('sections', function ($q) use ($sectionId) {
                           $q->where('sections.id', $sectionId);
                       });
             })
-            ->count();
-            
-        $absent = max(0, $totalStudentsInSection - ($present + $late));
+            ->pluck('id');
+
+        // Explicitly enrolled students NOT already in the section
+        $extraEnrolledIds = \App\Models\Enrollment::where('subject_id', $subjectId)
+            ->whereNotIn('student_id', $sectionStudentIds)
+            ->pluck('student_id');
+
+        $totalExpected = $sectionStudentIds->count() + $extraEnrolledIds->count();
+        $absent = max(0, $totalExpected - ($present + $late));
 
         $session->update([
             'ended_at'      => now(),

@@ -151,6 +151,43 @@
   </div>
 </div>
 
+<!-- Enrollment Modal -->
+<div id="enrollModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:580px; max-height:90vh; overflow-y:auto;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:4px;">👥 Subject Students</h3>
+    <p style="font-size:13px; color:var(--gray-500); margin-bottom:20px;" id="enrollModalSubjectName">–</p>
+
+    <div id="enrollError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+
+    <!-- Currently enrolled -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:13px; font-weight:600; color:var(--gray-700); margin-bottom:10px;">Currently Enrolled</div>
+      <div id="enrolledList" style="display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto;">
+        <div style="color:var(--gray-400); font-size:13px; padding:8px;">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Add students -->
+    <div style="border-top:1px solid var(--gray-200); padding-top:20px;">
+      <div style="font-size:13px; font-weight:600; color:var(--gray-700); margin-bottom:10px;">Add Students</div>
+      <div style="position:relative; margin-bottom:10px;">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="form-input" id="enrollSearch" placeholder="Search by name or student ID..." style="padding-left:36px;" oninput="filterAvailableStudents(this.value)">
+      </div>
+      <div id="availableList" style="display:flex; flex-direction:column; gap:6px; max-height:200px; overflow-y:auto; margin-bottom:16px;">
+        <div style="color:var(--gray-400); font-size:13px; padding:8px;">Loading...</div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span id="selectedCount" style="font-size:13px; color:var(--gray-500);">0 selected</span>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-ghost" onclick="document.getElementById('enrollModal').style.display='none'">Close</button>
+          <button class="btn btn-primary" id="enrollBtn" onclick="enrollSelected()">Enroll Selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -216,6 +253,7 @@
         <td>
           <div style="display:flex; gap:6px;">
             <button class="btn btn-ghost btn-sm" onclick="openEditSubject(${s.id})">✏️ Edit</button>
+            <button class="btn btn-ghost btn-sm" onclick="openEnrollModal(${s.id}, '${s.name.replace(/'/g,"\\'")}')">👥 Students</button>
             <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="deleteSubject(${s.id}, '${s.name.replace(/'/g,"\\'")}')">🗑️</button>
           </div>
         </td>
@@ -403,6 +441,115 @@
   }
 
   function logout() { axios.post('/api/logout').finally(() => { localStorage.clear(); window.location.href = '/login'; }); }
+
+  // ─── Enrollment ───────────────────────────────────────────────────────────
+
+  let currentEnrollSubjectId = null;
+  let availableStudentsData = [];
+  let selectedStudentIds = new Set();
+
+  async function openEnrollModal(subjectId, subjectName) {
+    currentEnrollSubjectId = subjectId;
+    selectedStudentIds = new Set();
+    document.getElementById('enrollModalSubjectName').textContent = subjectName;
+    document.getElementById('enrollError').style.display = 'none';
+    document.getElementById('enrollSearch').value = '';
+    document.getElementById('enrollModal').style.display = 'flex';
+    await refreshEnrollModal();
+  }
+
+  async function refreshEnrollModal() {
+    document.getElementById('enrolledList').innerHTML = '<div style="color:var(--gray-400); font-size:13px; padding:8px;">Loading...</div>';
+    document.getElementById('availableList').innerHTML = '<div style="color:var(--gray-400); font-size:13px; padding:8px;">Loading...</div>';
+
+    try {
+      const [enrolledRes, availableRes] = await Promise.all([
+        axios.get(`/api/admin/subjects/${currentEnrollSubjectId}/enrollments`),
+        axios.get(`/api/admin/subjects/${currentEnrollSubjectId}/available-students`),
+      ]);
+
+      availableStudentsData = availableRes.data.students;
+      renderEnrolledList(enrolledRes.data.students);
+      filterAvailableStudents(document.getElementById('enrollSearch').value);
+    } catch (e) {
+      document.getElementById('enrolledList').innerHTML = '<div style="color:var(--red); font-size:13px; padding:8px;">Failed to load.</div>';
+    }
+  }
+
+  function renderEnrolledList(students) {
+    if (students.length === 0) {
+      document.getElementById('enrolledList').innerHTML = '<div style="color:var(--gray-400); font-size:13px; padding:8px;">No students enrolled yet.</div>';
+      return;
+    }
+    document.getElementById('enrolledList').innerHTML = students.map(s => `
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:var(--gray-50); border-radius:6px; border:1px solid var(--gray-200);">
+        <div>
+          <div style="font-size:13px; font-weight:600;">${s.name}</div>
+          <div style="font-size:11px; color:var(--gray-500);">${s.student_id_number || '–'}</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="unenrollStudent(${s.id}, '${s.name.replace(/'/g,"\\'")}')">Remove</button>
+      </div>`).join('');
+  }
+
+  function filterAvailableStudents(q) {
+    const lower = q.toLowerCase();
+    const filtered = q
+      ? availableStudentsData.filter(s =>
+          s.name?.toLowerCase().includes(lower) ||
+          s.student_id_number?.toLowerCase().includes(lower))
+      : availableStudentsData;
+
+    if (filtered.length === 0) {
+      document.getElementById('availableList').innerHTML = '<div style="color:var(--gray-400); font-size:13px; padding:8px;">No students available.</div>';
+      return;
+    }
+
+    document.getElementById('availableList').innerHTML = filtered.map(s => {
+      const checked = selectedStudentIds.has(s.id);
+      return `
+        <label style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:${checked ? 'rgba(30,58,138,0.05)' : 'var(--gray-50)'}; border-radius:6px; border:1px solid ${checked ? 'var(--navy-blue)' : 'var(--gray-200)'}; cursor:pointer;">
+          <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleStudent(${s.id}, this.checked)" style="flex-shrink:0;">
+          <div>
+            <div style="font-size:13px; font-weight:600;">${s.name}</div>
+            <div style="font-size:11px; color:var(--gray-500);">${s.student_id_number || '–'}</div>
+          </div>
+        </label>`;
+    }).join('');
+  }
+
+  function toggleStudent(id, checked) {
+    if (checked) selectedStudentIds.add(id);
+    else selectedStudentIds.delete(id);
+    document.getElementById('selectedCount').textContent = `${selectedStudentIds.size} selected`;
+    filterAvailableStudents(document.getElementById('enrollSearch').value);
+  }
+
+  async function enrollSelected() {
+    if (selectedStudentIds.size === 0) return;
+    const btn = document.getElementById('enrollBtn');
+    btn.disabled = true; btn.textContent = 'Enrolling...';
+    try {
+      await axios.post(`/api/admin/subjects/${currentEnrollSubjectId}/enroll`, {
+        student_ids: [...selectedStudentIds],
+      });
+      selectedStudentIds = new Set();
+      document.getElementById('selectedCount').textContent = '0 selected';
+      await refreshEnrollModal();
+    } catch (e) {
+      document.getElementById('enrollError').textContent = '❌ ' + (e.response?.data?.message || 'Failed to enroll students.');
+      document.getElementById('enrollError').style.display = 'block';
+    } finally { btn.disabled = false; btn.textContent = 'Enroll Selected'; }
+  }
+
+  async function unenrollStudent(studentId, name) {
+    if (!confirm(`Remove ${name} from this subject?`)) return;
+    try {
+      await axios.delete(`/api/admin/subjects/${currentEnrollSubjectId}/unenroll/${studentId}`);
+      await refreshEnrollModal();
+    } catch (e) {
+      alert('Failed to remove student: ' + (e.response?.data?.message || 'Unknown error'));
+    }
+  }
 
   loadSubjects();
 </script>
