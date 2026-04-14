@@ -3,7 +3,7 @@
 
 @section('content')
 <aside class="sidebar">
-  <div class="logo"><div class="logo-icon">C</div><span class="logo-text">ClassGuard</span></div>
+<div class="logo"><img src="{{ asset('images/blue-gold-cg-bgremoved.png') }}" alt="ClassGuard" style="height:40px; width:auto;"><span class="logo-text">ClassGuard</span></div>
   <nav>
     <a href="{{ url('/admin/dashboard') }}" class="nav-item active"><span class="nav-icon">📊</span><span>Dashboard</span></a>
     <a href="{{ url('/admin/users') }}" class="nav-item"><span class="nav-icon">👥</span><span>User Management</span></a>

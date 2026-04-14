@@ -35,7 +35,7 @@
 <body>
   <div class="auth-container">
     <div class="auth-brand">
-      <img src="{{ asset('images/blue-gold-cg.jpg') }}" alt="ClassGuard Logo" class="brand-logo">
+<img src="{{ asset('images/blue-gold-cg-bgremoved.png') }}" alt="ClassGuard Logo" class="brand-logo">
       <div class="brand-name">ClassGuard</div>
       <div class="brand-tagline">RFID Attendance Management System</div>
     </div>
