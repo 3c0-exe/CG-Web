@@ -22,6 +22,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::patch('/me/password', [AuthController::class, 'changePassword']);
     Route::get('/rooms', [AdminController::class, 'allRooms']);
+    Route::get('/rooms/availability', [AdminController::class, 'roomAvailability']);
 
     // RFID Management
     Route::post('/rfid/link', [RfidController::class, 'linkCard']);
@@ -47,7 +48,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/users', [AdminController::class, 'allUsers']);
         Route::post('/users/professor', [AdminController::class, 'createProfessor']);
         Route::patch('/users/{userId}/status', [AdminController::class, 'updateUserStatus']);
-        Route::patch('/users/{userId}', [AdminController::class, 'updateUser']); // Fix: was missing
+        Route::patch('/users/{userId}', [AdminController::class, 'updateUser']);
+        Route::patch('/users/{userId}/assign-section', [AdminController::class, 'assignSection']);
 
         // Subjects
         Route::get('/subjects', [AdminController::class, 'allSubjects']);

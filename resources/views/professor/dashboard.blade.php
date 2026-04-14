@@ -10,6 +10,7 @@
     <a href="{{ url('/professor/live-attendance') }}" class="nav-item"><span class="nav-icon">📡</span><span>Live Attendance</span></a>
     <a href="{{ url('/professor/history') }}" class="nav-item"><span class="nav-icon">📋</span><span>Session History</span></a>
     <a href="{{ url('/professor/students') }}" class="nav-item"><span class="nav-icon">👥</span><span>My Students</span></a>
+    <a href="{{ url('/professor/rooms') }}" class="nav-item"><span class="nav-icon">🏠</span><span>Room Availability</span></a>
 <div class="nav-divider"></div>
     <div class="nav-section">Account</div>
     <a href="#" class="nav-item" onclick="openPasswordModal()"><span class="nav-icon">🔒</span><span>Change Password</span></a>
@@ -186,11 +187,17 @@
     document.getElementById('startSessionBtn').textContent = 'Start Session';
 
     try {
-      const res = await axios.get('/api/rooms');
+      const res = await axios.get('/api/rooms/availability');
       const rooms = res.data.rooms;
       document.getElementById('startSessionRoom').innerHTML =
         '<option value="">Select room...</option>' +
-        rooms.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+        rooms.map(r => {
+          const occupied = r.status === 'occupied';
+          const label = occupied
+            ? `🔴 ${r.name} — ${r.session.professor} · ${r.session.time_info}`
+            : `🟢 ${r.name}`;
+          return `<option value="${r.id}">${label}</option>`;
+        }).join('');
     } catch (e) {
       document.getElementById('startSessionRoom').innerHTML = '<option value="">Failed to load rooms</option>';
     }

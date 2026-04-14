@@ -13,6 +13,7 @@ Route::prefix('professor')->group(function () {
     Route::get('/live-attendance', fn() => view('professor.live-attendance'));
     Route::get('/history', fn() => view('professor.history'));
     Route::get('/students', fn() => view('professor.students'));
+    Route::get('/rooms', fn() => view('professor.rooms'));
 });
 
 // Admin Dashboard & Views
@@ -21,4 +22,5 @@ Route::prefix('admin')->group(function () {
     Route::get('/users', fn() => view('admin.users'));
     Route::get('/sections', fn() => view('admin.sections'));
     Route::get('/subjects', fn() => view('admin.subjects'));
+    Route::get('/rooms', fn() => view('admin.rooms'));
 });

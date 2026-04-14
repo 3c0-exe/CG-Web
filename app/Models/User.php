@@ -14,7 +14,7 @@ class User extends Authenticatable
 protected $fillable = [
         'name', 'title', 'email', 'password', 'role',
         'student_id_number', 'year_level_id', 'section_id',
-        'rfid_uid', 'rfid_linked_at', 'phone', 'status'
+        'rfid_uid', 'rfid_linked_at', 'phone', 'status', 'is_irregular'
     ];
 
     protected $hidden = [
@@ -25,6 +25,7 @@ protected $fillable = [
         'email_verified_at' => 'datetime',
         'rfid_linked_at' => 'datetime',
         'password' => 'hashed',
+        'is_irregular' => 'boolean',
     ];
 
     // Role helpers
@@ -52,6 +53,22 @@ protected $fillable = [
     public function section()
     {
         return $this->belongsTo(Section::class);
+    }
+
+    // For irregular students — multiple sections via pivot
+    public function sections()
+    {
+        return $this->belongsToMany(Section::class, 'student_sections')
+                    ->withPivot('year_level_id')
+                    ->withTimestamps();
+    }
+
+    // For irregular students — multiple sections via pivot
+    public function sections()
+    {
+        return $this->belongsToMany(Section::class, 'student_sections')
+                    ->withPivot('year_level_id')
+                    ->withTimestamps();
     }
 
     public function enrollments()

@@ -33,6 +33,16 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Card not registered'], 404);
         }
 
+        // Check if this student belongs to the session's section
+        $sessionSectionId = $session->subject->section_id;
+
+        $belongsToSection = ($student->section_id == $sessionSectionId)
+            || $student->sections()->where('section_id', $sessionSectionId)->exists();
+
+        if (!$belongsToSection) {
+            return response()->json(['success' => false, 'message' => 'Student not enrolled in this section'], 403);
+        }
+
         // Prevent duplicate scan
         $existing = AttendanceRecord::where('session_id', $session->id)
             ->where('student_id', $student->id)

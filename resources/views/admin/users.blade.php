@@ -9,7 +9,9 @@
     <a href="{{ url('/admin/users') }}" class="nav-item active"><span class="nav-icon">👥</span><span>User Management</span></a>
     <a href="{{ url('/admin/sections') }}" class="nav-item"><span class="nav-icon">🏫</span><span>Sections</span></a>
     <a href="{{ url('/admin/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>Subjects</span></a>
+    <a href="{{ url('/admin/rooms') }}" class="nav-item"><span class="nav-icon">🏠</span><span>Room Availability</span></a>
     <div class="nav-divider"></div>
+    <a href="#" class="nav-item" onclick="openPasswordModal()"><span class="nav-icon">🔒</span><span>Change Password</span></a>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
   </nav>
   <div class="user-section">
@@ -36,7 +38,7 @@
     <div class="section" style="padding: 24px; margin-bottom: 20px; overflow: hidden; border: 1px solid var(--gray-200); border-radius: 8px;">
       <h3 style="font-size:16px; font-weight:600; margin-bottom:8px;">Bulk Import Students (CSV)</h3>
       <p style="font-size:13px; color:var(--gray-500); margin-bottom:16px;">
-        Upload a CSV file with the following column headers: <strong>name, email, student_id_number, rfid_uid, year_level_code, section_name</strong>.
+        Upload a CSV file with the following column headers: <strong>name, email, student_id_number, rfid_uid</strong>. Section assignment is done separately after import.
       </p>
       
       <form id="csvUploadForm" style="display:flex; gap:12px; align-items:center;">
@@ -201,7 +203,11 @@
           </td>
           <td>${roleBadge(u.role)}</td>
           <td style="font-size:13px; font-family:monospace;">${u.student_id_number || '–'}</td>
-          <td style="font-size:13px;">${u.section?.name || '–'}</td>
+          <td style="font-size:13px;">
+            ${u.role === 'student' && !u.section
+              ? '<span class="badge warning">⚠ No Section</span>'
+              : (u.section?.name || '–')}
+          </td>
           <td>
             ${u.rfid_uid
               ? `<span class="badge success">✓ Linked</span>`
@@ -211,6 +217,7 @@
           <td>
             <div style="display:flex; gap:6px; flex-wrap:wrap;">
               <button class="btn btn-ghost btn-sm" onclick="openEditModal(${u.id})">✏️ Edit</button>
+              ${u.role === 'student' ? `<button class="btn btn-ghost btn-sm" onclick="openAssignSection(${u.id})">🏫 Section</button>` : ''}
               ${u.status === 'active' && u.role !== 'admin' ? `<button class="btn btn-ghost btn-sm" style="color:var(--red);" onclick="updateStatus(${u.id}, 'inactive')">Suspend</button>` : ''}
               ${u.status === 'inactive' ? `<button class="btn btn-ghost btn-sm" onclick="updateStatus(${u.id}, 'active')">Activate</button>` : ''}
             </div>
@@ -384,6 +391,106 @@ function openAddProfessor() {
 
   function logout() { axios.post('/api/logout').finally(() => { localStorage.clear(); window.location.href = '/login'; }); }
 
+  // ─── Assign Section ───────────────────────────────────────────────────────
+
+  let yearLevelsData = [];
+
+  async function openAssignSection(userId) {
+    const u = allUsers.find(u => u.id === userId);
+    if (!u) return;
+
+    document.getElementById('assignUserId').value = userId;
+    document.getElementById('assignStudentName').textContent = u.name;
+    document.getElementById('assignError').style.display = 'none';
+    document.getElementById('assignSectionSelect').innerHTML = '<option value="">Select section...</option>';
+
+    try {
+      if (!yearLevelsData.length) {
+        const res = await axios.get('/api/admin/year-levels');
+        yearLevelsData = res.data.year_levels;
+      }
+      document.getElementById('assignYearLevel').innerHTML =
+        '<option value="">Select year level...</option>' +
+        yearLevelsData.map(yl => `<option value="${yl.id}" ${u.year_level_id == yl.id ? 'selected' : ''}>${yl.name}</option>`).join('');
+
+      if (u.year_level_id) {
+        loadAssignSections(u.year_level_id, u.section_id);
+      }
+    } catch (e) {
+      document.getElementById('assignYearLevel').innerHTML = '<option value="">Failed to load</option>';
+    }
+
+    document.getElementById('assignSectionModal').style.display = 'flex';
+  }
+
+  function loadAssignSections(yearLevelId, selectedSectionId = null) {
+    const yl = yearLevelsData.find(y => y.id == yearLevelId);
+    if (!yl || !yl.sections) {
+      document.getElementById('assignSectionSelect').innerHTML = '<option value="">No sections found</option>';
+      return;
+    }
+    document.getElementById('assignSectionSelect').innerHTML =
+      '<option value="">Select section...</option>' +
+      yl.sections.map(s => `<option value="${s.id}" ${s.id == selectedSectionId ? 'selected' : ''}>${s.name}</option>`).join('');
+  }
+
+  async function saveAssignSection() {
+    const btn = document.getElementById('assignSaveBtn');
+    const errEl = document.getElementById('assignError');
+    const userId = document.getElementById('assignUserId').value;
+    const yearLevelId = document.getElementById('assignYearLevel').value;
+    const sectionId = document.getElementById('assignSectionSelect').value;
+
+    if (!yearLevelId || !sectionId) {
+      errEl.textContent = '❌ Please select both a year level and section.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Saving...'; errEl.style.display = 'none';
+
+    try {
+      await axios.patch(`/api/admin/users/${userId}/assign-section`, {
+        year_level_id: yearLevelId,
+        section_id: sectionId,
+      });
+      document.getElementById('assignSectionModal').style.display = 'none';
+      loadUsers();
+    } catch (e) {
+      errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to assign section.');
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Save';
+    }
+  }
+
   loadUsers();
 </script>
+
+<!-- Assign Section Modal -->
+<div id="assignSectionModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:420px;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:4px;">🏫 Assign Section</h3>
+    <p style="font-size:13px; color:var(--gray-500); margin-bottom:20px;" id="assignStudentName">–</p>
+    <div id="assignError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+    <input type="hidden" id="assignUserId">
+    <div class="form-group">
+      <label class="form-label">Year Level</label>
+      <select class="form-select" id="assignYearLevel" onchange="loadAssignSections(this.value)">
+        <option value="">Select year level...</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Section</label>
+      <select class="form-select" id="assignSectionSelect">
+        <option value="">Select section...</option>
+      </select>
+    </div>
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('assignSectionModal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="assignSaveBtn" onclick="saveAssignSection()">Save</button>
+    </div>
+  </div>
+</div>
+
 @endsection

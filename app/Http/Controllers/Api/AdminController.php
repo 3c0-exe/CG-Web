@@ -124,59 +124,96 @@ public function updateUser(Request $request, $userId)
 
         $file = $request->file('file');
         $fileHandle = fopen($file->getPathname(), 'r');
-        
+
         $header = fgetcsv($fileHandle); // Skip header
 
         $importedCount = 0;
         $skippedCount = 0;
 
+        $debugLog = [];
+
         while (($row = fgetcsv($fileHandle)) !== false) {
-            if (count($row) < 6) {
+            $debugLog[] = $row;
+
+            // Skip blank rows silently (don't count as skipped)
+            if (count(array_filter($row, fn($v) => trim($v) !== '')) === 0) {
+                continue;
+            }
+
+            if (count($row) < 4) {
                 $skippedCount++;
                 continue;
             }
 
-            $name = trim($row[0]);
-            $email = trim($row[1]);
+            $name      = trim($row[0]);
+            $email     = trim($row[1]);
             $studentId = trim($row[2]);
-            $rfidUid = trim($row[3]);
-            $yearCode = strtoupper(trim($row[4]));
-            $sectionName = strtoupper(trim($row[5]));
+            $rfidUid   = trim($row[3]);
 
-            $yearLevel = YearLevel::where('code', $yearCode)->first();
-            
-            if (!$yearLevel) {
+            if (empty($name) || empty($email)) {
                 $skippedCount++;
-                continue; 
+                continue;
             }
 
-            $section = Section::firstOrCreate(
-                ['name' => $sectionName, 'year_level_id' => $yearLevel->id]
-            );
+            $rfidValue = empty($rfidUid) ? null : $rfidUid;
 
-            User::updateOrCreate(
-                ['email' => $email],
-                [
-                    'name'              => $name,
-                    'student_id_number' => $studentId,
-                    'rfid_uid'          => empty($rfidUid) ? null : $rfidUid,
-                    'year_level_id'     => $yearLevel->id,
-                    'section_id'        => $section->id,
-                    'role'              => 'student',
-                    'status'            => 'active',
-                    'password'          => Hash::make(Str::random(16)), 
-                ]
-            );
+            // If RFID is provided, check it isn't already taken by a different user
+            if ($rfidValue) {
+                $conflict = User::where('rfid_uid', $rfidValue)
+                    ->where('email', '!=', $email)
+                    ->exists();
+                if ($conflict) {
+                    $skippedCount++;
+                    $rfidValue = null; // Don't skip the row — just clear the RFID and continue importing
+                }
+            }
 
-            $importedCount++;
+            try {
+                User::updateOrCreate(
+                    ['email' => $email],
+                    [
+                        'name'              => $name,
+                        'student_id_number' => empty($studentId) ? null : $studentId,
+                        'rfid_uid'          => $rfidValue,
+                        'role'              => 'student',
+                        'status'            => 'active',
+                        'password'          => Hash::make(Str::random(16)),
+                    ]
+                );
+                $importedCount++;
+            } catch (\Throwable $e) {
+                $skippedCount++;
+                \Log::error("CSV import row failed: " . $e->getMessage(), ['row' => $row]);
+            }
         }
 
         fclose($fileHandle);
 
         return response()->json([
             'success' => true,
-            'message' => "Import complete. $importedCount students imported/updated. $skippedCount rows skipped.",
+            'message' => "Import complete. $importedCount students imported/updated. $skippedCount rows skipped (duplicate RFID cleared or missing fields).",
         ]);
+    }
+
+    public function assignSection(Request $request, $userId)
+    {
+        $request->validate([
+            'year_level_id' => 'nullable|exists:year_levels,id',
+            'section_id'    => 'nullable|exists:sections,id',
+        ]);
+
+        $user = User::findOrFail($userId);
+
+        if ($user->role !== 'student') {
+            return response()->json(['success' => false, 'message' => 'Only students can be assigned to sections.'], 400);
+        }
+
+        $user->update([
+            'year_level_id' => $request->year_level_id,
+            'section_id'    => $request->section_id,
+        ]);
+
+        return response()->json(['success' => true, 'user' => $user->load('section', 'yearLevel')]);
     }
 
     // ─── Subject Management ───────────────────────────────────────────────────
@@ -353,6 +390,79 @@ public function updateUser(Request $request, $userId)
     public function allRooms()
     {
         return response()->json(['success' => true, 'rooms' => \App\Models\Room::orderBy('name')->get()]);
+    }
+
+    public function roomAvailability()
+    {
+        $rooms = \App\Models\Room::orderBy('name')->get();
+
+        $activeSessions = \App\Models\ClassSession::where('status', 'active')
+            ->with(['subject.professor', 'subject.section', 'room'])
+            ->get()
+            ->keyBy('room_id');
+
+        $now = now();
+
+        $result = $rooms->map(function ($room) use ($activeSessions, $now) {
+            $session = $activeSessions->get($room->id);
+
+            if (!$session) {
+                return [
+                    'id'     => $room->id,
+                    'name'   => $room->name,
+                    'status' => 'available',
+                ];
+            }
+
+            $subject = $session->subject;
+            $professor = $subject?->professor;
+
+            // Compute time remaining if schedule_end_time is set, otherwise elapsed
+            $timeInfo = null;
+            $timeType = null;
+
+            if ($subject?->schedule_end_time) {
+                $endTime = \Carbon\Carbon::createFromTimeString($subject->schedule_end_time);
+                // Use today's date with the schedule end time
+                $endToday = $now->copy()->setTimeFromTimeString($subject->schedule_end_time);
+                $diffMins = (int) $now->diffInMinutes($endToday, false);
+
+                if ($diffMins > 0) {
+                    $h = intdiv($diffMins, 60);
+                    $m = $diffMins % 60;
+                    $timeInfo = $h > 0 ? "{$h}h {$m}m remaining" : "{$m}m remaining";
+                    $timeType = 'remaining';
+                } else {
+                    $timeInfo = 'Overtime';
+                    $timeType = 'overtime';
+                }
+            } else {
+                // Fallback: elapsed
+                $elapsedMins = (int) $now->diffInMinutes(\Carbon\Carbon::parse($session->started_at));
+                $h = intdiv($elapsedMins, 60);
+                $m = $elapsedMins % 60;
+                $timeInfo = $h > 0 ? "{$h}h {$m}m elapsed" : "{$m}m elapsed";
+                $timeType = 'elapsed';
+            }
+
+            return [
+                'id'      => $room->id,
+                'name'    => $room->name,
+                'status'  => 'occupied',
+                'session' => [
+                    'subject'     => $subject?->name,
+                    'section'     => $subject?->section?->name,
+                    'professor'   => $professor
+                        ? trim(($professor->title ? $professor->title . ' ' : '') . $professor->name)
+                        : null,
+                    'started_at'  => $session->started_at,
+                    'time_info'   => $timeInfo,
+                    'time_type'   => $timeType,
+                ],
+            ];
+        });
+
+        return response()->json(['success' => true, 'rooms' => $result]);
     }
 
     public function createRoom(Request $request)
