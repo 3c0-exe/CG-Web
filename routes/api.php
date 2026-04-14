@@ -50,6 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/users/{userId}/status', [AdminController::class, 'updateUserStatus']);
         Route::patch('/users/{userId}', [AdminController::class, 'updateUser']);
         Route::patch('/users/{userId}/assign-section', [AdminController::class, 'assignSection']);
+        Route::post('/users/{userId}/add-section', [AdminController::class, 'addSection']);
+        Route::delete('/users/{userId}/remove-section/{sectionId}', [AdminController::class, 'removeSection']);
 
         // Subjects
         Route::get('/subjects', [AdminController::class, 'allSubjects']);

@@ -73,8 +73,15 @@ class SessionController extends Controller
         $present = AttendanceRecord::where('session_id', $session->id)->where('status', 'present')->count();
         $late    = AttendanceRecord::where('session_id', $session->id)->where('status', 'late')->count();
         
+        $sectionId = $session->subject->section_id;
+
         $totalStudentsInSection = \App\Models\User::where('role', 'student')
-            ->where('section_id', $session->subject->section_id)
+            ->where(function ($query) use ($sectionId) {
+                $query->where('section_id', $sectionId)
+                      ->orWhereHas('sections', function ($q) use ($sectionId) {
+                          $q->where('sections.id', $sectionId);
+                      });
+            })
             ->count();
             
         $absent = max(0, $totalStudentsInSection - ($present + $late));

@@ -36,7 +36,7 @@ class AdminController extends Controller
     public function allUsers(Request $request)
     {
         $role  = $request->query('role');
-        $query = User::with('yearLevel', 'section');
+        $query = User::with('yearLevel', 'section', 'sections');
 
         if ($role) {
             $query->where('role', $role);
@@ -111,9 +111,17 @@ public function updateUser(Request $request, $userId)
             $fields['title'] = $request->title;
         }
 
+        if ($user->role === 'student' && $request->has('is_irregular')) {
+            $fields['is_irregular'] = (bool) $request->is_irregular;
+            // If switching back to regular, clear the pivot table
+            if (!$request->is_irregular) {
+                $user->sections()->detach();
+            }
+        }
+
         $user->update($fields);
 
-        return response()->json(['success' => true, 'user' => $user]);
+        return response()->json(['success' => true, 'user' => $user->load('section', 'yearLevel', 'sections')]);
     }
 
     public function importStudentsCsv(Request $request)
@@ -208,12 +216,59 @@ public function updateUser(Request $request, $userId)
             return response()->json(['success' => false, 'message' => 'Only students can be assigned to sections.'], 400);
         }
 
+        if ($user->is_irregular) {
+            return response()->json(['success' => false, 'message' => 'Use the irregular section endpoints for irregular students.'], 400);
+        }
+
         $user->update([
             'year_level_id' => $request->year_level_id,
             'section_id'    => $request->section_id,
         ]);
 
-        return response()->json(['success' => true, 'user' => $user->load('section', 'yearLevel')]);
+        return response()->json(['success' => true, 'user' => $user->load('section', 'yearLevel', 'sections')]);
+    }
+
+    public function addSection(Request $request, $userId)
+    {
+        $request->validate([
+            'year_level_id' => 'required|exists:year_levels,id',
+            'section_id'    => 'required|exists:sections,id',
+        ]);
+
+        $user = User::findOrFail($userId);
+
+        if ($user->role !== 'student') {
+            return response()->json(['success' => false, 'message' => 'Only students can be assigned to sections.'], 400);
+        }
+
+        if (!$user->is_irregular) {
+            return response()->json(['success' => false, 'message' => 'Student is not marked as irregular.'], 400);
+        }
+
+        // Prevent duplicate pivot entry
+        $already = $user->sections()->where('section_id', $request->section_id)->exists();
+        if ($already) {
+            return response()->json(['success' => false, 'message' => 'Student is already assigned to this section.'], 400);
+        }
+
+        $user->sections()->attach($request->section_id, [
+            'year_level_id' => $request->year_level_id,
+        ]);
+
+        return response()->json(['success' => true, 'user' => $user->load('sections')]);
+    }
+
+    public function removeSection(Request $request, $userId, $sectionId)
+    {
+        $user = User::findOrFail($userId);
+
+        if ($user->role !== 'student' || !$user->is_irregular) {
+            return response()->json(['success' => false, 'message' => 'Invalid operation.'], 400);
+        }
+
+        $user->sections()->detach($sectionId);
+
+        return response()->json(['success' => true, 'user' => $user->load('sections')]);
     }
 
     // ─── Subject Management ───────────────────────────────────────────────────
@@ -315,7 +370,15 @@ public function updateUser(Request $request, $userId)
         if (!$subject) return response()->json(['success' => false, 'message' => 'Subject not found'], 403);
 
         $sessionCount = ClassSession::where('subject_id', $subjectId)->where('status', 'ended')->count();
-        $studentsInSection = User::where('role', 'student')->where('section_id', $subject->section_id)->get();
+        $sectionId = $subject->section_id;
+        $studentsInSection = User::where('role', 'student')
+            ->where(function ($query) use ($sectionId) {
+                $query->where('section_id', $sectionId)
+                      ->orWhereHas('sections', function ($q) use ($sectionId) {
+                          $q->where('sections.id', $sectionId);
+                      });
+            })
+            ->get();
         $sessionIds = ClassSession::where('subject_id', $subjectId)->where('status', 'ended')->pluck('id');
 
         $students = $studentsInSection->map(function ($student) use ($sessionIds, $sessionCount) {

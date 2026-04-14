@@ -55,13 +55,7 @@ protected $fillable = [
         return $this->belongsTo(Section::class);
     }
 
-    // For irregular students — multiple sections via pivot
-    public function sections()
-    {
-        return $this->belongsToMany(Section::class, 'student_sections')
-                    ->withPivot('year_level_id')
-                    ->withTimestamps();
-    }
+    
 
     // For irregular students — multiple sections via pivot
     public function sections()

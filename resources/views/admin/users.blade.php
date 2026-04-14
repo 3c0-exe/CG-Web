@@ -154,6 +154,17 @@
       <input type="text" class="form-input" id="editRfid" placeholder="e.g., A1:B2:C3:D4">
       <p style="font-size: 11px; color: var(--gray-500); margin-top: 4px;">Update this if the student gets a new ID card.</p>
     </div>
+
+    <div class="form-group" id="editIrregularGroup" style="display:none;">
+      <label class="form-label">Student Type</label>
+      <label style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:10px 14px; border:1px solid var(--gray-200); border-radius:8px;">
+        <input type="checkbox" id="editIsIrregular" style="width:16px; height:16px; cursor:pointer; accent-color:var(--navy-blue);">
+        <div>
+          <div style="font-size:13px; font-weight:500;">Mark as Irregular Student</div>
+          <div style="font-size:11px; color:var(--gray-500);">Can be assigned to multiple sections.</div>
+        </div>
+      </label>
+    </div>
     
     <div style="display:flex; gap:12px; margin-top: 24px;">
       <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('editUserModal').style.display='none'">Cancel</button>
@@ -183,6 +194,17 @@
     return '<span class="badge neutral">Student</span>';
   }
 
+  function sectionDisplay(u) {
+    if (u.role !== 'student') return '–';
+    if (u.is_irregular) {
+      const chips = u.sections && u.sections.length
+        ? u.sections.map(s => `<span class="badge info" style="margin-right:2px;">${s.name}</span>`).join('')
+        : '<span class="badge warning">⚠ No Section</span>';
+      return chips + ' <span class="badge gold" style="font-size:10px;">Irregular</span>';
+    }
+    return u.section ? u.section.name : '<span class="badge warning">⚠ No Section</span>';
+  }
+
   function renderTable(users) {
     if (users.length === 0) {
       document.getElementById('tableBody').innerHTML = '<tr><td colspan="7" style="text-align:center; padding:32px; color:var(--gray-400);">No users found.</td></tr>';
@@ -203,11 +225,7 @@
           </td>
           <td>${roleBadge(u.role)}</td>
           <td style="font-size:13px; font-family:monospace;">${u.student_id_number || '–'}</td>
-          <td style="font-size:13px;">
-            ${u.role === 'student' && !u.section
-              ? '<span class="badge warning">⚠ No Section</span>'
-              : (u.section?.name || '–')}
-          </td>
+          <td style="font-size:13px;">${sectionDisplay(u)}</td>
           <td>
             ${u.rfid_uid
               ? `<span class="badge success">✓ Linked</span>`
@@ -317,6 +335,15 @@ function openAddProfessor() {
       document.getElementById('editTitle').value = '';
     }
 
+    const irregularGroup = document.getElementById('editIrregularGroup');
+    if (u.role === 'student') {
+      irregularGroup.style.display = 'block';
+      document.getElementById('editIsIrregular').checked = !!u.is_irregular;
+    } else {
+      irregularGroup.style.display = 'none';
+      document.getElementById('editIsIrregular').checked = false;
+    }
+
     document.getElementById('editError').style.display = 'none';
     document.getElementById('editUserModal').style.display = 'flex';
   }
@@ -329,12 +356,16 @@ function openAddProfessor() {
     btn.disabled = true; btn.textContent = 'Saving...'; errEl.style.display = 'none';
     
     try {
-      await axios.patch(`/api/admin/users/${id}`, {
+      const payload = {
         title: document.getElementById('editTitle').value,
         name: document.getElementById('editName').value,
         student_id_number: document.getElementById('editStudentId').value,
         rfid_uid: document.getElementById('editRfid').value,
-      });
+      };
+      if (document.getElementById('editIrregularGroup').style.display !== 'none') {
+        payload.is_irregular = document.getElementById('editIsIrregular').checked;
+      }
+      await axios.patch(`/api/admin/users/${id}`, payload);
       
       document.getElementById('editUserModal').style.display = 'none';
       loadUsers();
@@ -402,22 +433,33 @@ function openAddProfessor() {
     document.getElementById('assignUserId').value = userId;
     document.getElementById('assignStudentName').textContent = u.name;
     document.getElementById('assignError').style.display = 'none';
-    document.getElementById('assignSectionSelect').innerHTML = '<option value="">Select section...</option>';
 
     try {
       if (!yearLevelsData.length) {
         const res = await axios.get('/api/admin/year-levels');
         yearLevelsData = res.data.year_levels;
       }
-      document.getElementById('assignYearLevel').innerHTML =
-        '<option value="">Select year level...</option>' +
-        yearLevelsData.map(yl => `<option value="${yl.id}" ${u.year_level_id == yl.id ? 'selected' : ''}>${yl.name}</option>`).join('');
+    } catch (e) { }
 
+    const ylOptions = '<option value="">Select year level...</option>' +
+      yearLevelsData.map(yl => `<option value="${yl.id}">${yl.name}</option>`).join('');
+
+    if (u.is_irregular) {
+      document.getElementById('assignRegularUI').style.display = 'none';
+      document.getElementById('assignIrregularUI').style.display = 'block';
+      document.getElementById('assignIrregularYearLevel').innerHTML = ylOptions;
+      document.getElementById('assignIrregularSectionSelect').innerHTML = '<option value="">Select section...</option>';
+      renderAssignedSections(userId, u.sections || []);
+    } else {
+      document.getElementById('assignRegularUI').style.display = 'block';
+      document.getElementById('assignIrregularUI').style.display = 'none';
+      document.getElementById('assignYearLevel').innerHTML = ylOptions;
       if (u.year_level_id) {
+        document.getElementById('assignYearLevel').value = u.year_level_id;
         loadAssignSections(u.year_level_id, u.section_id);
+      } else {
+        document.getElementById('assignSectionSelect').innerHTML = '<option value="">Select section...</option>';
       }
-    } catch (e) {
-      document.getElementById('assignYearLevel').innerHTML = '<option value="">Failed to load</option>';
     }
 
     document.getElementById('assignSectionModal').style.display = 'flex';
@@ -432,6 +474,31 @@ function openAddProfessor() {
     document.getElementById('assignSectionSelect').innerHTML =
       '<option value="">Select section...</option>' +
       yl.sections.map(s => `<option value="${s.id}" ${s.id == selectedSectionId ? 'selected' : ''}>${s.name}</option>`).join('');
+  }
+
+  function loadIrregularSections(yearLevelId) {
+    const yl = yearLevelsData.find(y => y.id == yearLevelId);
+    if (!yl || !yl.sections) {
+      document.getElementById('assignIrregularSectionSelect').innerHTML = '<option value="">No sections found</option>';
+      return;
+    }
+    document.getElementById('assignIrregularSectionSelect').innerHTML =
+      '<option value="">Select section...</option>' +
+      yl.sections.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+  }
+
+  function renderAssignedSections(userId, sections) {
+    const container = document.getElementById('assignedSectionsList');
+    if (!sections.length) {
+      container.innerHTML = '<span style="font-size:13px; color:var(--gray-400);">No sections assigned yet.</span>';
+      return;
+    }
+    container.innerHTML = sections.map(s =>
+      `<span style="display:inline-flex; align-items:center; gap:6px; background:var(--navy-blue); color:white; font-size:12px; padding:4px 10px; border-radius:20px;">
+        ${s.name}
+        <button onclick="removeIrregularSection(${userId}, ${s.id})" style="background:none; border:none; color:white; cursor:pointer; font-size:16px; line-height:1; padding:0; opacity:0.8;">×</button>
+      </span>`
+    ).join('');
   }
 
   async function saveAssignSection() {
@@ -464,31 +531,109 @@ function openAddProfessor() {
     }
   }
 
+  async function addIrregularSection() {
+    const btn = document.getElementById('addIrregularSectionBtn');
+    const errEl = document.getElementById('assignError');
+    const userId = document.getElementById('assignUserId').value;
+    const yearLevelId = document.getElementById('assignIrregularYearLevel').value;
+    const sectionId = document.getElementById('assignIrregularSectionSelect').value;
+
+    if (!yearLevelId || !sectionId) {
+      errEl.textContent = '❌ Please select both a year level and section.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = 'Adding...'; errEl.style.display = 'none';
+
+    try {
+      await axios.post(`/api/admin/users/${userId}/add-section`, {
+        year_level_id: yearLevelId,
+        section_id: sectionId,
+      });
+      await loadUsers();
+      const updated = allUsers.find(u => u.id == userId);
+      if (updated) renderAssignedSections(userId, updated.sections || []);
+      document.getElementById('assignIrregularYearLevel').value = '';
+      document.getElementById('assignIrregularSectionSelect').innerHTML = '<option value="">Select section...</option>';
+    } catch (e) {
+      errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to add section.');
+      errEl.style.display = 'block';
+    } finally {
+      btn.disabled = false; btn.textContent = 'Add Section';
+    }
+  }
+
+  async function removeIrregularSection(userId, sectionId) {
+    const errEl = document.getElementById('assignError');
+    errEl.style.display = 'none';
+    try {
+      await axios.delete(`/api/admin/users/${userId}/remove-section/${sectionId}`);
+      await loadUsers();
+      const updated = allUsers.find(u => u.id == userId);
+      if (updated) renderAssignedSections(userId, updated.sections || []);
+    } catch (e) {
+      errEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to remove section.');
+      errEl.style.display = 'block';
+    }
+  }
+
   loadUsers();
 </script>
 
 <!-- Assign Section Modal -->
 <div id="assignSectionModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
-  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:420px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:440px; max-height:90vh; overflow-y:auto;">
     <h3 style="font-size:18px; font-weight:700; margin-bottom:4px;">🏫 Assign Section</h3>
     <p style="font-size:13px; color:var(--gray-500); margin-bottom:20px;" id="assignStudentName">–</p>
     <div id="assignError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
     <input type="hidden" id="assignUserId">
-    <div class="form-group">
-      <label class="form-label">Year Level</label>
-      <select class="form-select" id="assignYearLevel" onchange="loadAssignSections(this.value)">
-        <option value="">Select year level...</option>
-      </select>
+
+    <!-- Regular student UI (one section) -->
+    <div id="assignRegularUI">
+      <div class="form-group">
+        <label class="form-label">Year Level</label>
+        <select class="form-select" id="assignYearLevel" onchange="loadAssignSections(this.value)">
+          <option value="">Select year level...</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Section</label>
+        <select class="form-select" id="assignSectionSelect">
+          <option value="">Select section...</option>
+        </select>
+      </div>
+      <div style="display:flex; gap:12px; margin-top:8px;">
+        <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('assignSectionModal').style.display='none'">Cancel</button>
+        <button class="btn btn-primary" style="flex:2" id="assignSaveBtn" onclick="saveAssignSection()">Save</button>
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Section</label>
-      <select class="form-select" id="assignSectionSelect">
-        <option value="">Select section...</option>
-      </select>
-    </div>
-    <div style="display:flex; gap:12px; margin-top:8px;">
-      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('assignSectionModal').style.display='none'">Cancel</button>
-      <button class="btn btn-primary" style="flex:2" id="assignSaveBtn" onclick="saveAssignSection()">Save</button>
+
+    <!-- Irregular student UI (multiple sections) -->
+    <div id="assignIrregularUI" style="display:none;">
+      <div style="margin-bottom:16px;">
+        <p style="font-size:12px; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px;">Assigned Sections</p>
+        <div id="assignedSectionsList" style="display:flex; flex-wrap:wrap; gap:8px; min-height:36px;"></div>
+      </div>
+      <div style="border-top:1px solid var(--gray-200); padding-top:16px; margin-top:4px;">
+        <p style="font-size:12px; font-weight:600; color:var(--gray-500); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Add Section</p>
+        <div class="form-group">
+          <label class="form-label">Year Level</label>
+          <select class="form-select" id="assignIrregularYearLevel" onchange="loadIrregularSections(this.value)">
+            <option value="">Select year level...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Section</label>
+          <select class="form-select" id="assignIrregularSectionSelect">
+            <option value="">Select section...</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" id="addIrregularSectionBtn" onclick="addIrregularSection()">Add Section</button>
+      </div>
+      <div style="margin-top:16px;">
+        <button class="btn btn-ghost" style="width:100%;" onclick="document.getElementById('assignSectionModal').style.display='none'">Done</button>
+      </div>
     </div>
   </div>
 </div>
