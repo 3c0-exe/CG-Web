@@ -97,6 +97,21 @@ class MqttListener extends Command
 
         }, 0);
 
+        // Subscribe to enroll scans from ESP32
+        $client->subscribe('attendance/scan/enroll', function (string $topic, string $message) {
+            $data = json_decode($message, true);
+
+            if (!isset($data['uid'])) {
+                $this->warn('Invalid enroll message: ' . $message);
+                return;
+            }
+
+            $uid = strtoupper($data['uid']);
+            $this->info("[ENROLL] Card scanned for enroll: {$uid}");
+
+            \Illuminate\Support\Facades\Cache::put('enroll_uid', $uid, now()->addSeconds(30));
+        }, 0);
+
         // Keep listening forever
         $client->loop(true);
     }

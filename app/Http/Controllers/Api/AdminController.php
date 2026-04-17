@@ -124,6 +124,31 @@ public function updateUser(Request $request, $userId)
         return response()->json(['success' => true, 'user' => $user->load('section', 'yearLevel', 'sections')]);
     }
 
+    public function enrollStart(Request $request)
+    {
+        app(\App\Services\MqttService::class)->enrollStart();
+        \Illuminate\Support\Facades\Cache::put('enroll_uid', null, now()->addSeconds(60));
+        return response()->json(['success' => true]);
+    }
+
+    public function enrollPending(Request $request)
+    {
+        $uid = \Illuminate\Support\Facades\Cache::get('enroll_uid');
+        if ($uid) {
+            \Illuminate\Support\Facades\Cache::forget('enroll_uid');
+            app(\App\Services\MqttService::class)->enrollEnd();
+            return response()->json(['success' => true, 'uid' => $uid]);
+        }
+        return response()->json(['success' => false, 'uid' => null]);
+    }
+
+    public function enrollCancel(Request $request)
+    {
+        \Illuminate\Support\Facades\Cache::forget('enroll_uid');
+        app(\App\Services\MqttService::class)->enrollEnd();
+        return response()->json(['success' => true]);
+    }
+
     public function importStudentsCsv(Request $request)
     {
         $request->validate([

@@ -43,6 +43,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('admin')->group(function () {
         Route::get('/stats', [AdminController::class, 'stats']);
 
+        // RFID Enroll Mode
+        Route::post('/rfid/enroll/start', [AdminController::class, 'enrollStart']);
+        Route::get('/rfid/enroll/pending', [AdminController::class, 'enrollPending']);
+        Route::delete('/rfid/enroll/cancel', [AdminController::class, 'enrollCancel']);
+
         // User Management
         Route::post('/users/import-students', [AdminController::class, 'importStudentsCsv']);
         Route::get('/users', [AdminController::class, 'allUsers']);

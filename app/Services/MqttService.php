@@ -61,4 +61,18 @@ class MqttService
             'session_id' => $session->session_id,
         ]);
     }
+
+    public function enrollStart(): void
+    {
+        $this->publish('attendance/enroll/start', [
+            'ts' => now()->timestamp,
+        ]);
+    }
+
+    public function enrollEnd(): void
+    {
+        $this->publish('attendance/enroll/end', [
+            'ts' => now()->timestamp,
+        ]);
+    }
 }

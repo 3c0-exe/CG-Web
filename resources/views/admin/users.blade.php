@@ -151,8 +151,11 @@
     </div>
     <div class="form-group">
       <label class="form-label">RFID UID (Editable)</label>
-      <input type="text" class="form-input" id="editRfid" placeholder="e.g., A1:B2:C3:D4">
-      <p style="font-size: 11px; color: var(--gray-500); margin-top: 4px;">Update this if the student gets a new ID card.</p>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="text" class="form-input" id="editRfid" placeholder="e.g., A1:B2:C3:D4" style="flex:1;">
+        <button type="button" class="btn btn-ghost" id="scanBtn" onclick="startEnrollScan()" style="white-space:nowrap; font-size:12px;">📡 Scan Card</button>
+      </div>
+      <p id="scanStatus" style="font-size: 11px; color: var(--gray-500); margin-top: 4px;">Update this if the student gets a new ID card.</p>
     </div>
 
     <div class="form-group" id="editIrregularGroup" style="display:none;">
@@ -577,6 +580,62 @@ function openAddProfessor() {
       errEl.style.display = 'block';
     }
   }
+
+  let enrollPollInterval = null;
+
+  async function startEnrollScan() {
+    const btn = document.getElementById('scanBtn');
+    const status = document.getElementById('scanStatus');
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Waiting...';
+    status.textContent = 'Tap the RFID card on the reader now...';
+    status.style.color = 'var(--navy-blue)';
+
+    try {
+      await axios.post('/api/admin/rfid/enroll/start');
+    } catch (e) {
+      status.textContent = 'Failed to start scan mode.';
+      status.style.color = 'var(--red)';
+      btn.disabled = false;
+      btn.textContent = '📡 Scan Card';
+      return;
+    }
+
+    enrollPollInterval = setInterval(async () => {
+      try {
+        const res = await axios.get('/api/admin/rfid/enroll/pending');
+        if (res.data.uid) {
+          clearInterval(enrollPollInterval);
+          document.getElementById('editRfid').value = res.data.uid;
+          status.textContent = '✅ Card scanned: ' + res.data.uid;
+          status.style.color = 'green';
+          btn.disabled = false;
+          btn.textContent = '📡 Scan Card';
+        }
+      } catch (e) { }
+    }, 1000);
+
+    // Auto-cancel after 30s
+    setTimeout(async () => {
+      if (!enrollPollInterval) return;
+      clearInterval(enrollPollInterval);
+      await axios.delete('/api/admin/rfid/enroll/cancel');
+      status.textContent = 'Scan timed out. Try again.';
+      status.style.color = 'var(--red)';
+      btn.disabled = false;
+      btn.textContent = '📡 Scan Card';
+    }, 30000);
+  }
+
+  // Cancel enroll if modal is closed mid-scan
+  document.getElementById('editUserModal').querySelector('.btn-ghost').addEventListener('click', async () => {
+    if (enrollPollInterval) {
+      clearInterval(enrollPollInterval);
+      enrollPollInterval = null;
+      await axios.delete('/api/admin/rfid/enroll/cancel').catch(() => {});
+    }
+  });
 
   loadUsers();
 </script>
