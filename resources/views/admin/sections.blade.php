@@ -29,7 +29,6 @@
       <p class="topbar-subtitle">Manage year levels and sections</p>
     </div>
     <div class="topbar-right">
-      <button class="btn btn-ghost" onclick="openAddRoom()">🚪 Add Room</button>
       <button class="btn btn-primary" onclick="openAddSection()">+ Add Section</button>
     </div>
   </div>
@@ -85,22 +84,65 @@
 </div>
 
 <!-- Edit Section Modal -->
-<div id="editModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
-  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:440px;">
+<div id="editModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px; overflow-y:auto;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:820px; margin:auto;">
     <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">✏️ Edit Section</h3>
     <div id="editError" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
     <input type="hidden" id="editSectionId">
-    <div class="form-group">
-      <label class="form-label">Year Level</label>
-      <select class="form-select" id="editYearLevel">
-        <option value="">Select year level...</option>
-      </select>
+
+    <!-- Section name fields -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:4px;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Year Level</label>
+        <select class="form-select" id="editYearLevel">
+          <option value="">Select year level...</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label">Section Name</label>
+        <input type="text" class="form-input" id="editSectionName" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Section Name</label>
-      <input type="text" class="form-input" id="editSectionName" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+
+    <!-- Student panels -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:24px;">
+
+      <!-- Enrolled Students -->
+      <div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <div>
+            <div style="font-size:13px; font-weight:700; color:var(--gray-900);">✅ Enrolled Students</div>
+            <div id="enrolledSubtitle" style="font-size:11px; color:var(--gray-400); margin-top:1px;"></div>
+          </div>
+          <span id="enrolledCount" style="background:var(--primary,#3b5bdb); color:#fff; font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px;">0</span>
+        </div>
+        <input type="text" id="enrolledSearch" placeholder="🔍 Search enrolled…" oninput="filterStudentLists()"
+          style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid var(--gray-200); border-radius:6px; font-size:12px; margin-bottom:8px; outline:none;">
+        <div id="enrolledList" style="border:1px solid var(--gray-200); border-radius:8px; max-height:260px; overflow-y:auto; background:var(--gray-50);">
+          <div style="padding:32px; text-align:center; color:var(--gray-400); font-size:13px;">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Unenrolled Students -->
+      <div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <div>
+            <div style="font-size:13px; font-weight:700; color:var(--gray-900);">👤 Unenrolled Students</div>
+            <div id="unenrolledSubtitle" style="font-size:11px; color:var(--gray-400); margin-top:1px;">Students from other sections</div>
+          </div>
+          <span id="unenrolledCount" style="background:var(--gray-300,#dee2e6); color:var(--gray-700,#495057); font-size:11px; font-weight:700; padding:2px 9px; border-radius:20px;">0</span>
+        </div>
+        <input type="text" id="unenrolledSearch" placeholder="🔍 Search students…" oninput="filterStudentLists()"
+          style="width:100%; box-sizing:border-box; padding:7px 10px; border:1px solid var(--gray-200); border-radius:6px; font-size:12px; margin-bottom:8px; outline:none;">
+        <div id="unenrolledList" style="border:1px solid var(--gray-200); border-radius:8px; max-height:260px; overflow-y:auto; background:var(--gray-50);">
+          <div style="padding:32px; text-align:center; color:var(--gray-400); font-size:13px;">Loading…</div>
+        </div>
+      </div>
     </div>
-    <div style="display:flex; gap:12px; margin-top:8px;">
+
+    <div id="enrollMsg" style="display:none; font-size:12px; padding:8px 12px; border-radius:6px; margin-top:12px;"></div>
+
+    <div style="display:flex; gap:12px; margin-top:20px;">
       <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('editModal').style.display='none'">Cancel</button>
       <button class="btn btn-primary" style="flex:2" id="editBtn" onclick="updateSection()">Save Changes</button>
     </div>
@@ -235,13 +277,143 @@
     } finally { btn.disabled = false; btn.textContent = 'Add Section'; }
   }
 
-  function openEditSection(id, yearLevelId, name) {
+  // ─── Student enrollment state ────────────────────────────────────────────
+  let _editSectionName = '';
+  let _allStudents     = [];   // [{id, name, student_id, section_id, section_name}]
+  let _enrolledIds     = new Set();
+
+  async function openEditSection(id, yearLevelId, name) {
+    _editSectionName = name;
     populateYearLevelDropdowns();
     document.getElementById('editSectionId').value = id;
     document.getElementById('editYearLevel').value = yearLevelId;
     document.getElementById('editSectionName').value = name;
     document.getElementById('editError').style.display = 'none';
+    document.getElementById('enrollMsg').style.display = 'none';
+    document.getElementById('enrolledSubtitle').textContent = 'Section ' + name;
     document.getElementById('editModal').style.display = 'flex';
+
+    // Reset lists while loading
+    document.getElementById('enrolledList').innerHTML   = '<div style="padding:32px; text-align:center; color:var(--gray-400); font-size:13px;">Loading…</div>';
+    document.getElementById('unenrolledList').innerHTML = '<div style="padding:32px; text-align:center; color:var(--gray-400); font-size:13px;">Loading…</div>';
+    document.getElementById('enrolledSearch').value   = '';
+    document.getElementById('unenrolledSearch').value = '';
+
+    try {
+      // Fetch all students + the section's current students in parallel
+      const [allRes, secRes] = await Promise.all([
+        axios.get('/api/admin/students'),
+        axios.get(`/api/admin/sections/${id}/students`)
+      ]);
+
+      // Normalise — adjust field names if your API differs
+      _allStudents = (allRes.data.students || allRes.data || []).map(s => ({
+        id:           s.id,
+        name:         s.name || (s.first_name + ' ' + s.last_name),
+        student_id:   s.student_id || s.school_id || '',
+        section_id:   s.section_id || null,
+        section_name: s.section_name || s.section?.name || null,
+      }));
+
+      const enrolled = secRes.data.students || secRes.data || [];
+      _enrolledIds = new Set(enrolled.map(s => s.id));
+
+      renderStudentLists();
+    } catch (e) {
+      const msg = '⚠️ Could not load students: ' + (e.response?.data?.message || e.message);
+      document.getElementById('enrolledList').innerHTML   = `<div style="padding:20px; text-align:center; color:var(--red); font-size:12px;">${msg}</div>`;
+      document.getElementById('unenrolledList').innerHTML = `<div style="padding:20px; text-align:center; color:var(--red); font-size:12px;">${msg}</div>`;
+    }
+  }
+
+  function filterStudentLists() { renderStudentLists(); }
+
+  function renderStudentLists() {
+    const eq = document.getElementById('enrolledSearch').value.toLowerCase();
+    const uq = document.getElementById('unenrolledSearch').value.toLowerCase();
+    const sectionId = document.getElementById('editSectionId').value;
+
+    const enrolled   = _allStudents.filter(s =>  _enrolledIds.has(s.id));
+    const unenrolled = _allStudents.filter(s => !_enrolledIds.has(s.id));
+
+    document.getElementById('enrolledCount').textContent   = enrolled.length;
+    document.getElementById('unenrolledCount').textContent = unenrolled.length;
+
+    // Enrolled list
+    const efil = enrolled.filter(s => !eq || s.name.toLowerCase().includes(eq) || s.student_id.toLowerCase().includes(eq));
+    document.getElementById('enrolledList').innerHTML = efil.length
+      ? efil.map(s => studentRow(s, true, sectionId)).join('')
+      : '<div style="padding:24px; text-align:center; color:var(--gray-400); font-size:13px;">No enrolled students.</div>';
+
+    // Unenrolled list
+    const ufil = unenrolled.filter(s => !uq || s.name.toLowerCase().includes(uq) || s.student_id.toLowerCase().includes(uq));
+    document.getElementById('unenrolledList').innerHTML = ufil.length
+      ? ufil.map(s => studentRow(s, false, sectionId)).join('')
+      : '<div style="padding:24px; text-align:center; color:var(--gray-400); font-size:13px;">No unenrolled students.</div>';
+  }
+
+  function studentRow(s, isEnrolled, sectionId) {
+    const badge = s.section_name && !isEnrolled
+      ? `<span style="font-size:10px; padding:2px 7px; border-radius:10px; background:rgba(59,91,219,0.08); color:var(--primary,#3b5bdb); font-weight:600; white-space:nowrap;">${s.section_name}</span>`
+      : '';
+    const btn = isEnrolled
+      ? `<button onclick="unenrollStudent(${s.id})" title="Remove from section"
+           style="padding:4px 10px; font-size:11px; border:1px solid rgba(239,68,68,0.4); background:rgba(239,68,68,0.06); color:var(--red,#dc2626); border-radius:5px; cursor:pointer; white-space:nowrap;">
+           ✕ Remove
+         </button>`
+      : `<button onclick="enrollStudent(${s.id}, '${sectionId}')" title="Enroll in this section"
+           style="padding:4px 10px; font-size:11px; border:1px solid rgba(59,91,219,0.35); background:rgba(59,91,219,0.07); color:var(--primary,#3b5bdb); border-radius:5px; cursor:pointer; white-space:nowrap;">
+           + Enroll
+         </button>`;
+
+    return `
+      <div style="display:flex; align-items:center; gap:8px; padding:9px 12px; border-bottom:1px solid var(--gray-100); background:var(--white);">
+        <div style="width:30px; height:30px; border-radius:50%; background:var(--primary,#3b5bdb); color:#fff; font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          ${s.name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase()}
+        </div>
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:13px; font-weight:600; color:var(--gray-900); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.name}</div>
+          <div style="font-size:11px; color:var(--gray-400);">${s.student_id || 'No ID'}</div>
+        </div>
+        ${badge}
+        ${btn}
+      </div>`;
+  }
+
+  async function enrollStudent(studentId, sectionId) {
+    const msgEl = document.getElementById('enrollMsg');
+    try {
+      await axios.post(`/api/admin/sections/${sectionId}/students`, { student_id: studentId });
+      _enrolledIds.add(studentId);
+      renderStudentLists();
+      showEnrollMsg('✅ Student enrolled successfully.', 'success');
+    } catch (e) {
+      showEnrollMsg('❌ ' + (e.response?.data?.message || 'Failed to enroll student.'), 'error');
+    }
+  }
+
+  async function unenrollStudent(studentId) {
+    const sectionId = document.getElementById('editSectionId').value;
+    const msgEl = document.getElementById('enrollMsg');
+    try {
+      await axios.delete(`/api/admin/sections/${sectionId}/students/${studentId}`);
+      _enrolledIds.delete(studentId);
+      renderStudentLists();
+      showEnrollMsg('✅ Student removed from section.', 'success');
+    } catch (e) {
+      showEnrollMsg('❌ ' + (e.response?.data?.message || 'Failed to remove student.'), 'error');
+    }
+  }
+
+  function showEnrollMsg(text, type) {
+    const el = document.getElementById('enrollMsg');
+    el.textContent = text;
+    el.style.display = 'block';
+    el.style.background = type === 'success' ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+    el.style.border     = type === 'success' ? '1px solid rgba(34,197,94,0.25)' : '1px solid rgba(239,68,68,0.2)';
+    el.style.color      = type === 'success' ? '#16a34a' : 'var(--red)';
+    clearTimeout(el._t);
+    el._t = setTimeout(() => { el.style.display = 'none'; }, 3500);
   }
 
   async function updateSection() {

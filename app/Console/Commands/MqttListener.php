@@ -79,9 +79,9 @@ class MqttListener extends Command
             }
 
             // ✨ DETERMINE STATUS IMMEDIATELY (just like scanCard does)
-            $threshold = $session->subject->late_threshold_minutes ?? 15;
-            $minutesLate = now()->diffInMinutes($session->started_at);
-            $status = $minutesLate > $threshold ? 'late' : 'present';
+$threshold = $session->subject->late_threshold_minutes ?? 15;
+$minutesLate = \Carbon\Carbon::parse($session->started_at)->diffInMinutes(now(), false);
+$status = $minutesLate > $threshold ? 'late' : 'present';
 
             // Create attendance record with calculated status
             AttendanceRecord::create([

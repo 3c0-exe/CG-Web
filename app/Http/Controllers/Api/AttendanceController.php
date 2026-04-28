@@ -57,9 +57,10 @@ class AttendanceController extends Controller
         }
 
         // Determine present or late immediately based on Professor's setting
-        $threshold = $session->subject->late_threshold_minutes ?? 15;
-        $minutesLate = now()->diffInMinutes($session->started_at);
-        $status = $minutesLate > $threshold ? 'late' : 'present';
+$threshold = $session->subject->late_threshold_minutes ?? 15;
+$minutesLate = $session->started_at->diffInMinutes(now(), false);
+$status = $minutesLate > $threshold ? 'late' : 'present';
+\Log::info("LATE CHECK", ['threshold' => $threshold, 'minutesLate' => $minutesLate, 'status' => $status]);
 
         $record = AttendanceRecord::create([
             'session_id'        => $session->id,

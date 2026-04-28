@@ -93,6 +93,7 @@
       <label class="form-label">Title</label>
       <select class="form-input" id="profTitle">
         <option value="">Select title...</option>
+        <option value="Prof.">Inst.</option>
         <option value="Prof.">Prof.</option>
         <option value="Ms.">Ms.</option>
         <option value="Mrs.">Mrs.</option>
