@@ -81,5 +81,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/sections', [AdminController::class, 'createSection']);
         Route::patch('/sections/{sectionId}', [AdminController::class, 'updateSection']);
         Route::delete('/sections/{sectionId}', [AdminController::class, 'deleteSection']);
+        Route::get('/sections/{sectionId}/students', [AdminController::class, 'sectionStudents']);
+        Route::post('/sections/{sectionId}/students', [AdminController::class, 'enrollStudentToSection']);
+        Route::delete('/sections/{sectionId}/students/{studentId}', [AdminController::class, 'unenrollStudentFromSection']);
     });
 });

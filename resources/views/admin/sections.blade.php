@@ -302,17 +302,18 @@
     try {
       // Fetch all students + the section's current students in parallel
       const [allRes, secRes] = await Promise.all([
-        axios.get('/api/admin/students'),
+        axios.get('/api/admin/users?role=student'),
         axios.get(`/api/admin/sections/${id}/students`)
       ]);
 
       // Normalise — adjust field names if your API differs
-      _allStudents = (allRes.data.students || allRes.data || []).map(s => ({
+      _allStudents = (allRes.data.users || []).map(s => ({
         id:           s.id,
         name:         s.name || (s.first_name + ' ' + s.last_name),
-        student_id:   s.student_id || s.school_id || '',
+        student_id:   s.student_id_number || s.student_id || s.school_id || '',
         section_id:   s.section_id || null,
         section_name: s.section_name || s.section?.name || null,
+        sections:     s.sections || [],
       }));
 
       const enrolled = secRes.data.students || secRes.data || [];
@@ -353,8 +354,16 @@
   }
 
   function studentRow(s, isEnrolled, sectionId) {
-    const badge = s.section_name && !isEnrolled
-      ? `<span style="font-size:10px; padding:2px 7px; border-radius:10px; background:rgba(59,91,219,0.08); color:var(--primary,#3b5bdb); font-weight:600; white-space:nowrap;">${s.section_name}</span>`
+    const sectionLabels = !isEnrolled
+      ? [
+          ...(s.section_name ? [s.section_name] : []),
+          ...(s.sections || []).map(sec => sec.name).filter(n => n && n !== s.section_name)
+        ]
+      : [];
+    const badge = sectionLabels.length
+      ? sectionLabels.map(n =>
+          `<span style="font-size:10px; padding:2px 7px; border-radius:10px; background:rgba(59,91,219,0.08); color:var(--primary,#3b5bdb); font-weight:600; white-space:nowrap; margin-right:2px;">${n}</span>`
+        ).join('')
       : '';
     const btn = isEnrolled
       ? `<button onclick="unenrollStudent(${s.id})" title="Remove from section"

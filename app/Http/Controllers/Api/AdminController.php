@@ -473,6 +473,44 @@ public function updateUser(Request $request, $userId)
         return response()->json(['success' => true, 'message' => 'Section deleted']);
     }
 
+    public function sectionStudents($sectionId)
+    {
+        $section = Section::findOrFail($sectionId);
+        $students = User::where('role', 'student')
+            ->where(function ($q) use ($sectionId) {
+                $q->where('section_id', $sectionId)
+                  ->orWhereHas('sections', fn($q2) => $q2->where('sections.id', $sectionId));
+            })
+            ->get(['id', 'name', 'student_id_number', 'section_id']);
+        return response()->json(['success' => true, 'students' => $students]);
+    }
+
+    public function enrollStudentToSection(Request $request, $sectionId)
+    {
+        $request->validate(['student_id' => 'required|exists:users,id']);
+        $section = Section::findOrFail($sectionId);
+        $student = User::where('id', $request->student_id)->where('role', 'student')->firstOrFail();
+        $student->update(['section_id' => $sectionId, 'year_level_id' => $section->year_level_id]);
+        return response()->json(['success' => true, 'message' => 'Student enrolled to section.']);
+    }
+
+    public function unenrollStudentFromSection(Request $request, $sectionId, $studentId)
+    {
+        $student = User::where('id', $studentId)->where('role', 'student')->firstOrFail();
+
+        // Remove from primary section
+        if ((string)$student->section_id === (string)$sectionId) {
+            $student->update(['section_id' => null, 'year_level_id' => null]);
+        }
+
+        // Remove from irregular pivot if present
+        if ($student->is_irregular) {
+            $student->sections()->detach($sectionId);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Student removed from section.']);
+    }
+
     // ─── Room Management ──────────────────────────────────────────────────────
 
     public function allRooms()
