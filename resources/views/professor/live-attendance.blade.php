@@ -21,6 +21,11 @@
     <a href="{{ url('/professor/students') }}" class="nav-item"><span class="nav-icon">👥</span><span>My Students</span></a>
     <a href="{{ url('/professor/rooms') }}" class="nav-item"><span class="nav-icon">🏠</span><span>Room Availability</span></a>
     <div class="nav-divider"></div>
+    <div class="nav-section">Reports</div>
+    <a href="{{ url('/professor/reports/section-attendance') }}" class="nav-item"><span class="nav-icon">📈</span><span>Section Attendance</span></a>
+    <a href="{{ url('/professor/reports/student-attendance') }}" class="nav-item"><span class="nav-icon">🎓</span><span>Student Attendance</span></a>
+    <a href="{{ url('/professor/reports/at-risk') }}" class="nav-item"><span class="nav-icon">⚠️</span><span>At-Risk Students</span></a>
+    <div class="nav-divider"></div>
     <div class="nav-section">Account</div>
     <a href="#" class="nav-item" onclick="openPasswordModal()"><span class="nav-icon">🔒</span><span>Change Password</span></a>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>

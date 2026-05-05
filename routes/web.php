@@ -14,6 +14,11 @@ Route::prefix('professor')->group(function () {
     Route::get('/history', fn() => view('professor.history'));
     Route::get('/students', fn() => view('professor.students'));
     Route::get('/rooms', fn() => view('professor.rooms'));
+
+    // Reports
+    Route::get('/reports/session-overview', fn() => view('professor.reports.session-overview'));
+    Route::get('/reports/student-records', fn() => view('professor.reports.student-records'));
+    Route::get('/reports/at-risk', fn() => view('professor.reports.at-risk'));
 });
 
 // Admin Dashboard & Views

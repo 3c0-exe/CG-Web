@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\RfidController;
 use App\Http\Controllers\Api\SessionController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\ReportController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -17,7 +18,7 @@ Route::post('/attendance/scan', [AttendanceController::class, 'scanCard']);
 // Authenticated routes
 Route::middleware('auth:sanctum')->group(function () {
 
-// Global Auth / Utilities
+    // Global Auth / Utilities
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::patch('/me/password', [AuthController::class, 'changePassword']);
@@ -37,6 +38,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/session/history', [SessionController::class, 'sessionHistory']);
         Route::get('/attendance/live/{sessionId}', [AttendanceController::class, 'liveFeed']);
         Route::get('/students', [AdminController::class, 'professorStudents']);
+
+        // Reports
+        Route::get('/reports/section-attendance', [ReportController::class, 'sectionAttendance']);
+        Route::get('/reports/student-attendance', [ReportController::class, 'studentAttendance']);
+        Route::get('/reports/at-risk', [ReportController::class, 'atRisk']);
     });
 
     // Admin Routes
