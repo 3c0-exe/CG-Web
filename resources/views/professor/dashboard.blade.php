@@ -13,8 +13,8 @@
     <a href="{{ url('/professor/rooms') }}" class="nav-item"><span class="nav-icon">🏠</span><span>Room Availability</span></a>
 <div class="nav-divider"></div>
     <div class="nav-section">Reports</div>
-    <a href="{{ url('/professor/reports/section-attendance') }}" class="nav-item"><span class="nav-icon">📈</span><span>Section Attendance</span></a>
-    <a href="{{ url('/professor/reports/student-attendance') }}" class="nav-item"><span class="nav-icon">🎓</span><span>Student Attendance</span></a>
+  <a href="{{ url('/professor/reports/session-overview') }}" class="nav-item"><span class="nav-icon">📈</span><span>Session Overview</span></a>
+<a href="{{ url('/professor/reports/student-records') }}" class="nav-item"><span class="nav-icon">🎓</span><span>Student Records</span></a>
     <a href="{{ url('/professor/reports/at-risk') }}" class="nav-item"><span class="nav-icon">⚠️</span><span>At-Risk Students</span></a>
     <div class="nav-divider"></div>
     <div class="nav-section">Account</div>
