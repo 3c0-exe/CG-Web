@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Subject;
+use App\Models\Schedule;
 use App\Models\ClassSession;
 use App\Models\Section;
 use App\Models\YearLevel;
 use App\Models\AttendanceRecord;
+use App\Models\Device;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class AdminController extends Controller
@@ -25,6 +28,7 @@ class AdminController extends Controller
                 'total_students'    => User::where('role', 'student')->count(),
                 'total_professors'  => User::where('role', 'professor')->count(),
                 'total_subjects'    => Subject::count(),
+                'total_schedules'   => Schedule::count(),
                 'active_sessions'   => ClassSession::where('status', 'active')->count(),
                 'pending_users'     => User::where('status', 'pending')->count(),
             ],
@@ -45,7 +49,7 @@ class AdminController extends Controller
         return response()->json(['success' => true, 'users' => $query->get()]);
     }
 
-public function createProfessor(Request $request)
+    public function createProfessor(Request $request)
     {
         $request->validate([
             'title'    => 'required|in:Prof.,Ms.,Mrs.,Mr.,Dr.,Engr.,Atty.',
@@ -78,7 +82,7 @@ public function createProfessor(Request $request)
         return response()->json(['success' => true, 'user' => $user]);
     }
 
-public function updateUser(Request $request, $userId)
+    public function updateUser(Request $request, $userId)
     {
         $user = User::findOrFail($userId);
 
@@ -296,106 +300,330 @@ public function updateUser(Request $request, $userId)
         return response()->json(['success' => true, 'user' => $user->load('sections')]);
     }
 
-    // ─── Subject Management ───────────────────────────────────────────────────
+    // ─── Subjects (Master Records) ────────────────────────────────────────────
 
     public function allSubjects()
     {
-        $subjects = Subject::with('professor', 'section', 'yearLevel')->get();
+        $subjects = Subject::with('yearLevel')->get();
         return response()->json(['success' => true, 'subjects' => $subjects]);
     }
 
     public function createSubject(Request $request)
     {
         $request->validate([
-            'name'                   => 'required|string',
-            'year_level_id'          => 'required|exists:year_levels,id',
-            'section_id'             => 'required|exists:sections,id',
-            'professor_id'           => 'required|exists:users,id',
-            'allow_guests'           => 'boolean',
-            'late_threshold_minutes' => 'integer|min:1',
-            'schedule_days'          => 'nullable|array',
-            'schedule_days.*'        => 'in:Mon,Tue,Wed,Thu,Fri,Sat,Sun',
-            'schedule_start_time'    => 'nullable|date_format:H:i',
-            'schedule_end_time'      => 'nullable|date_format:H:i|after:schedule_start_time',
+            'name'          => 'required|string',
+            'code'          => 'nullable|string',
+            'year_level_id' => 'required|exists:year_levels,id',
         ]);
 
-        $subject = Subject::create($request->only([
-            'name', 'year_level_id', 'section_id', 'professor_id',
-            'allow_guests', 'late_threshold_minutes',
-            'schedule_days', 'schedule_start_time', 'schedule_end_time',
-        ]));
+        $subject = Subject::create($request->only(['name', 'code', 'year_level_id']));
 
-        return response()->json(['success' => true, 'subject' => $subject->load('professor', 'section', 'yearLevel')], 201);
+        return response()->json(['success' => true, 'subject' => $subject->load('yearLevel')], 201);
     }
 
     public function updateSubject(Request $request, $subjectId)
     {
         $request->validate([
-            'name'                   => 'required|string',
-            'year_level_id'          => 'required|exists:year_levels,id',
-            'section_id'             => 'required|exists:sections,id',
-            'professor_id'           => 'required|exists:users,id',
-            'allow_guests'           => 'boolean',
-            'late_threshold_minutes' => 'integer|min:1',
-            'schedule_days'          => 'nullable|array',
-            'schedule_days.*'        => 'in:Mon,Tue,Wed,Thu,Fri,Sat,Sun',
-            'schedule_start_time'    => 'nullable|date_format:H:i',
-            'schedule_end_time'      => 'nullable|date_format:H:i|after:schedule_start_time',
+            'name'          => 'required|string',
+            'code'          => 'nullable|string',
+            'year_level_id' => 'required|exists:year_levels,id',
         ]);
 
         $subject = Subject::findOrFail($subjectId);
-        $subject->update($request->only([
-            'name', 'year_level_id', 'section_id', 'professor_id',
-            'allow_guests', 'late_threshold_minutes',
-            'schedule_days', 'schedule_start_time', 'schedule_end_time',
-        ]));
+        $subject->update($request->only(['name', 'code', 'year_level_id']));
 
-        return response()->json(['success' => true, 'subject' => $subject->load('professor', 'section', 'yearLevel')]);
+        return response()->json(['success' => true, 'subject' => $subject->load('yearLevel')]);
     }
 
     public function deleteSubject($subjectId)
     {
         $subject = Subject::findOrFail($subjectId);
 
-        $activeSession = ClassSession::where('subject_id', $subjectId)
-            ->where('status', 'active')
-            ->exists();
+        // Check if subject has active schedules with sessions
+        $hasActiveSessions = ClassSession::whereHas('schedule', function ($q) use ($subjectId) {
+            $q->where('subject_id', $subjectId);
+        })->where('status', 'active')->exists();
 
-        if ($activeSession) {
-            return response()->json(['success' => false, 'message' => 'Cannot delete a subject with an active session.'], 400);
+        if ($hasActiveSessions) {
+            return response()->json(['success' => false, 'message' => 'Cannot delete a subject that has schedules with active sessions.'], 400);
         }
 
         $subject->delete();
         return response()->json(['success' => true, 'message' => 'Subject deleted']);
     }
 
+    // ─── Schedules ────────────────────────────────────────────────────────────
+
+    public function allSchedules()
+    {
+        $schedules = Schedule::with('subject.yearLevel', 'section', 'professor', 'room')->get();
+        return response()->json(['success' => true, 'schedules' => $schedules]);
+    }
+
+    public function createSchedule(Request $request)
+    {
+        $request->validate([
+            'subject_id'             => 'required|exists:subjects,id',
+            'section_id'             => 'required|exists:sections,id',
+            'professor_id'           => 'required|exists:users,id',
+            'room_id'                => 'nullable|exists:rooms,id',
+            'allow_guests'           => 'boolean',
+            'late_threshold_minutes' => 'integer|min:1',
+            'schedule_days'          => 'nullable|array',
+            'schedule_days.*'        => 'in:Mon,Tue,Wed,Thu,Fri,Sat,Sun',
+            'schedule_start_time'    => 'nullable|date_format:H:i',
+            'schedule_end_time'      => 'nullable|date_format:H:i|after:schedule_start_time',
+        ]);
+
+        $schedule = Schedule::create($request->only([
+            'subject_id', 'section_id', 'professor_id', 'room_id',
+            'allow_guests', 'late_threshold_minutes',
+            'schedule_days', 'schedule_start_time', 'schedule_end_time',
+        ]));
+
+        return response()->json(['success' => true, 'schedule' => $schedule->load('subject.yearLevel', 'section', 'professor', 'room')], 201);
+    }
+
+    public function updateSchedule(Request $request, $scheduleId)
+    {
+        $request->validate([
+            'subject_id'             => 'required|exists:subjects,id',
+            'section_id'             => 'required|exists:sections,id',
+            'professor_id'           => 'required|exists:users,id',
+            'room_id'                => 'nullable|exists:rooms,id',
+            'allow_guests'           => 'boolean',
+            'late_threshold_minutes' => 'integer|min:1',
+            'schedule_days'          => 'nullable|array',
+            'schedule_days.*'        => 'in:Mon,Tue,Wed,Thu,Fri,Sat,Sun',
+            'schedule_start_time'    => 'nullable|date_format:H:i',
+            'schedule_end_time'      => 'nullable|date_format:H:i|after:schedule_start_time',
+        ]);
+
+        $schedule = Schedule::findOrFail($scheduleId);
+        $schedule->update($request->only([
+            'subject_id', 'section_id', 'professor_id', 'room_id',
+            'allow_guests', 'late_threshold_minutes',
+            'schedule_days', 'schedule_start_time', 'schedule_end_time',
+        ]));
+
+        return response()->json(['success' => true, 'schedule' => $schedule->load('subject.yearLevel', 'section', 'professor', 'room')]);
+    }
+
+    public function deleteSchedule($scheduleId)
+    {
+        $schedule = Schedule::findOrFail($scheduleId);
+
+        $activeSession = ClassSession::where('schedule_id', $scheduleId)
+            ->where('status', 'active')
+            ->exists();
+
+        if ($activeSession) {
+            return response()->json(['success' => false, 'message' => 'Cannot delete a schedule with an active session.'], 400);
+        }
+
+        $schedule->delete();
+        return response()->json(['success' => true, 'message' => 'Schedule deleted']);
+    }
+
+    // ─── Schedule Enrollment ──────────────────────────────────────────────────
+
+    public function scheduleEnrollments($scheduleId)
+    {
+        $schedule = Schedule::findOrFail($scheduleId);
+        $enrolled = $schedule->enrolledStudents()->get();
+        return response()->json(['success' => true, 'students' => $enrolled]);
+    }
+
+    public function enrollStudents(Request $request, $scheduleId)
+    {
+        $request->validate([
+            'student_ids'   => 'required|array',
+            'student_ids.*' => 'exists:users,id',
+        ]);
+
+        $schedule = Schedule::findOrFail($scheduleId);
+
+        $syncData = collect($request->student_ids)->mapWithKeys(fn($id) => [
+            $id => ['enrollment_type' => 'regular']
+        ])->toArray();
+
+        $schedule->enrolledStudents()->syncWithoutDetaching($syncData);
+
+        return response()->json(['success' => true, 'message' => count($request->student_ids) . ' student(s) enrolled.']);
+    }
+
+    public function unenrollStudent($scheduleId, $studentId)
+    {
+        $schedule = Schedule::findOrFail($scheduleId);
+        $schedule->enrolledStudents()->detach($studentId);
+        return response()->json(['success' => true, 'message' => 'Student removed from schedule.']);
+    }
+
+    public function availableStudentsForSchedule($scheduleId)
+    {
+        $schedule = Schedule::findOrFail($scheduleId);
+        $enrolledIds = $schedule->enrolledStudents()->pluck('users.id');
+
+        $students = User::where('role', 'student')
+            ->whereNotIn('id', $enrolledIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'student_id_number', 'section_id']);
+
+        return response()->json(['success' => true, 'students' => $students]);
+    }
+
+    // ─── Prospectus ───────────────────────────────────────────────────────────
+
+    public function prospectus()
+    {
+        // Group schedules by Year Level -> Section
+        $yearLevels = YearLevel::with(['sections.schedules.subject', 'sections.schedules.professor', 'sections.schedules.room'])->get();
+        return response()->json(['success' => true, 'year_levels' => $yearLevels]);
+    }
+
+    // ─── Devices ──────────────────────────────────────────────────────────────
+
+    public function allDevices()
+    {
+        return response()->json(['success' => true, 'devices' => Device::all()]);
+    }
+
+    public function registerDevice(Request $request)
+    {
+        $request->validate([
+            'device_id' => 'required|string|unique:devices,device_id',
+            'name'      => 'nullable|string',
+        ]);
+
+        $device = Device::create([
+            'device_id'     => $request->device_id,
+            'name'          => $request->name,
+            'is_active'     => true,
+            'registered_at' => now(),
+        ]);
+
+        return response()->json(['success' => true, 'device' => $device], 201);
+    }
+
+    public function toggleDevice(Request $request, $deviceId)
+    {
+        $request->validate(['is_active' => 'required|boolean']);
+        $device = Device::findOrFail($deviceId);
+        $device->update(['is_active' => $request->is_active]);
+        return response()->json(['success' => true, 'device' => $device]);
+    }
+
+    public function deleteDevice($deviceId)
+    {
+        Device::findOrFail($deviceId)->delete();
+        return response()->json(['success' => true, 'message' => 'Device deleted']);
+    }
+
+    // ─── Export / Import ──────────────────────────────────────────────────────
+
+    public function exportSetup()
+    {
+        $data = [
+            'year_levels' => YearLevel::all(),
+            'sections'    => Section::all(),
+            'subjects'    => Subject::all(),
+            'rooms'       => \App\Models\Room::all(),
+            'schedules'   => Schedule::all(),
+            'users'       => User::whereIn('role', ['professor', 'student'])->get(),
+            'devices'     => Device::all(),
+        ];
+
+        return response()->json($data);
+    }
+
+    public function importSetup(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:json|max:10240',
+        ]);
+
+        $fileContent = file_get_contents($request->file('file')->getPathname());
+        $data = json_decode($fileContent, true);
+
+        if (!$data) {
+            return response()->json(['success' => false, 'message' => 'Invalid JSON file.'], 400);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Import logic (simplified UPSERT to avoid PK conflicts)
+            if (isset($data['year_levels'])) {
+                foreach ($data['year_levels'] as $yl) {
+                    YearLevel::updateOrCreate(['id' => $yl['id']], $yl);
+                }
+            }
+            if (isset($data['sections'])) {
+                foreach ($data['sections'] as $sec) {
+                    Section::updateOrCreate(['id' => $sec['id']], $sec);
+                }
+            }
+            if (isset($data['subjects'])) {
+                foreach ($data['subjects'] as $sub) {
+                    Subject::updateOrCreate(['id' => $sub['id']], $sub);
+                }
+            }
+            if (isset($data['rooms'])) {
+                foreach ($data['rooms'] as $room) {
+                    \App\Models\Room::updateOrCreate(['id' => $room['id']], $room);
+                }
+            }
+            if (isset($data['users'])) {
+                foreach ($data['users'] as $user) {
+                    User::updateOrCreate(['email' => $user['email']], $user);
+                }
+            }
+            if (isset($data['schedules'])) {
+                foreach ($data['schedules'] as $sch) {
+                    Schedule::updateOrCreate(['id' => $sch['id']], $sch);
+                }
+            }
+            if (isset($data['devices'])) {
+                foreach ($data['devices'] as $dev) {
+                    Device::updateOrCreate(['device_id' => $dev['device_id']], $dev);
+                }
+            }
+            DB::commit();
+            return response()->json(['success' => true, 'message' => 'Setup data imported successfully.']);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Import failed: ' . $e->getMessage()], 500);
+        }
+    }
+
     // ─── Professor specific logic ─────────────────────────────────────────────
 
-    public function professorSubjects(Request $request)
+    public function professorSchedules(Request $request)
     {
-        $subjects = Subject::where('professor_id', $request->user()->id)
-            ->with('section', 'yearLevel')
+        $schedules = Schedule::where('professor_id', $request->user()->id)
+            ->with('subject.yearLevel', 'section', 'room')
             ->get();
 
-        return response()->json(['success' => true, 'subjects' => $subjects]);
+        return response()->json(['success' => true, 'schedules' => $schedules]);
     }
 
     public function professorStudents(Request $request)
     {
         $request->validate([
-            'subject_id' => 'required|exists:subjects,id',
+            'schedule_id' => 'required|exists:schedules,id',
         ]);
 
-        $subjectId = $request->query('subject_id');
+        $scheduleId = $request->query('schedule_id');
 
-        $subject = Subject::where('id', $subjectId)
+        $schedule = Schedule::where('id', $scheduleId)
             ->where('professor_id', $request->user()->id)
+            ->with('subject.yearLevel', 'section', 'room')
             ->first();
 
-        if (!$subject) return response()->json(['success' => false, 'message' => 'Subject not found'], 403);
+        if (!$schedule) return response()->json(['success' => false, 'message' => 'Schedule not found'], 403);
 
-        $sessionCount = ClassSession::where('subject_id', $subjectId)->where('status', 'ended')->count();
-        $sectionId = $subject->section_id;
+        $sessionCount = ClassSession::where('schedule_id', $scheduleId)->where('status', 'ended')->count();
+        $sectionId = $schedule->section_id;
+        
         $studentsInSection = User::where('role', 'student')
             ->where(function ($query) use ($sectionId) {
                 $query->where('section_id', $sectionId)
@@ -404,7 +632,8 @@ public function updateUser(Request $request, $userId)
                       });
             })
             ->get();
-        $sessionIds = ClassSession::where('subject_id', $subjectId)->where('status', 'ended')->pluck('id');
+            
+        $sessionIds = ClassSession::where('schedule_id', $scheduleId)->where('status', 'ended')->pluck('id');
 
         $students = $studentsInSection->map(function ($student) use ($sessionIds, $sessionCount) {
             $presentCount = 0; $lateCount = 0; $absentCount = 0;
@@ -435,7 +664,7 @@ public function updateUser(Request $request, $userId)
             ];
         });
 
-        return response()->json(['success' => true, 'students' => $students, 'session_count' => $sessionCount, 'subject' => $subject->load('section')]);
+        return response()->json(['success' => true, 'students' => $students, 'session_count' => $sessionCount, 'schedule' => $schedule]);
     }
 
     // ─── Year Levels & Sections ───────────────────────────────────────────────
@@ -523,7 +752,7 @@ public function updateUser(Request $request, $userId)
         $rooms = \App\Models\Room::orderBy('name')->get();
 
         $activeSessions = \App\Models\ClassSession::where('status', 'active')
-            ->with(['subject.professor', 'subject.section', 'room'])
+            ->with(['schedule.subject', 'schedule.professor', 'schedule.section', 'room'])
             ->get()
             ->keyBy('room_id');
 
@@ -540,17 +769,18 @@ public function updateUser(Request $request, $userId)
                 ];
             }
 
-            $subject = $session->subject;
-            $professor = $subject?->professor;
+            $schedule = $session->schedule;
+            $subject = $schedule?->subject;
+            $professor = $schedule?->professor;
 
             // Compute time remaining if schedule_end_time is set, otherwise elapsed
             $timeInfo = null;
             $timeType = null;
 
-            if ($subject?->schedule_end_time) {
-                $endTime = \Carbon\Carbon::createFromTimeString($subject->schedule_end_time);
+            if ($schedule?->schedule_end_time) {
+                $endTime = \Carbon\Carbon::createFromTimeString($schedule->schedule_end_time);
                 // Use today's date with the schedule end time
-                $endToday = $now->copy()->setTimeFromTimeString($subject->schedule_end_time);
+                $endToday = $now->copy()->setTimeFromTimeString($schedule->schedule_end_time);
                 $diffMins = (int) $now->diffInMinutes($endToday, false);
 
                 if ($diffMins > 0) {
@@ -577,7 +807,7 @@ public function updateUser(Request $request, $userId)
                 'status'  => 'occupied',
                 'session' => [
                     'subject'     => $subject?->name,
-                    'section'     => $subject?->section?->name,
+                    'section'     => $schedule?->section?->name,
                     'professor'   => $professor
                         ? trim(($professor->title ? $professor->title . ' ' : '') . $professor->name)
                         : null,
@@ -615,53 +845,5 @@ public function updateUser(Request $request, $userId)
         }
         $room->delete();
         return response()->json(['success' => true, 'message' => 'Room deleted']);
-    }
-    // ─── Subject Enrollment ───────────────────────────────────────────────────
-
-    public function subjectEnrollments($subjectId)
-    {
-        $subject = Subject::findOrFail($subjectId);
-        $enrolled = $subject->enrolledStudents()->get();
-        return response()->json(['success' => true, 'students' => $enrolled]);
-    }
-
-    public function enrollStudents(Request $request, $subjectId)
-    {
-        $request->validate([
-            'student_ids'   => 'required|array',
-            'student_ids.*' => 'exists:users,id',
-        ]);
-
-        $subject = Subject::findOrFail($subjectId);
-
-        $syncData = collect($request->student_ids)->mapWithKeys(fn($id) => [
-            $id => ['enrollment_type' => 'regular']
-        ])->toArray();
-
-        // syncWithoutDetaching so we don't remove existing enrollments
-        $subject->enrolledStudents()->syncWithoutDetaching($syncData);
-
-        return response()->json(['success' => true, 'message' => count($request->student_ids) . ' student(s) enrolled.']);
-    }
-
-    public function unenrollStudent($subjectId, $studentId)
-    {
-        $subject = Subject::findOrFail($subjectId);
-        $subject->enrolledStudents()->detach($studentId);
-        return response()->json(['success' => true, 'message' => 'Student removed from subject.']);
-    }
-
-    public function availableStudentsForSubject($subjectId)
-    {
-        $subject = Subject::findOrFail($subjectId);
-        $enrolledIds = $subject->enrolledStudents()->pluck('users.id');
-
-        // All students not yet enrolled in this subject
-        $students = User::where('role', 'student')
-            ->whereNotIn('id', $enrolledIds)
-            ->orderBy('name')
-            ->get(['id', 'name', 'student_id_number', 'section_id']);
-
-        return response()->json(['success' => true, 'students' => $students]);
     }
 }

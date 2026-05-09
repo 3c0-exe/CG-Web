@@ -70,9 +70,10 @@ protected $fillable = [
         return $this->hasMany(Enrollment::class, 'student_id');
     }
 
-    public function subjects()
+    // Professor's schedules (was subjects)
+    public function schedules()
     {
-        return $this->hasMany(Subject::class, 'professor_id');
+        return $this->hasMany(Schedule::class, 'professor_id');
     }
 
     public function sessions()

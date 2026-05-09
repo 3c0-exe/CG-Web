@@ -5,41 +5,36 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\ClassSession;
-use App\Models\Subject;
+use App\Models\Schedule;
 use App\Models\User;
 use Illuminate\Http\Request;
 
 class ReportController extends Controller
 {
     // ─── Per Section Overall Attendance ───────────────────────────────────────
-    //
-    // GET /api/professor/reports/section-attendance?subject_id=1
-    //
-    // Returns: per-session breakdown for the subject's section showing
-    // total present, late, absent counts across all ended sessions.
 
     public function sectionAttendance(Request $request)
     {
         $request->validate([
-            'subject_id' => 'required|exists:subjects,id',
+            'schedule_id' => 'required|exists:schedules,id',
         ]);
 
-        $subject = Subject::where('id', $request->subject_id)
+        $schedule = Schedule::where('id', $request->schedule_id)
             ->where('professor_id', $request->user()->id)
-            ->with('section', 'yearLevel')
+            ->with('subject.yearLevel', 'section')
             ->first();
 
-        if (!$subject) {
-            return response()->json(['success' => false, 'message' => 'Subject not found or access denied.'], 403);
+        if (!$schedule) {
+            return response()->json(['success' => false, 'message' => 'Schedule not found or access denied.'], 403);
         }
 
-        $sessions = ClassSession::where('subject_id', $subject->id)
+        $sessions = ClassSession::where('schedule_id', $schedule->id)
             ->where('status', 'ended')
             ->orderBy('started_at', 'asc')
             ->get();
 
         // Students belonging to this section (regular + irregular)
-        $sectionId = $subject->section_id;
+        $sectionId = $schedule->section_id;
         $students = User::where('role', 'student')
             ->where(function ($q) use ($sectionId) {
                 $q->where('section_id', $sectionId)
@@ -81,11 +76,11 @@ class ReportController extends Controller
 
         return response()->json([
             'success'  => true,
-            'subject'  => [
-                'id'         => $subject->id,
-                'name'       => $subject->name,
-                'section'    => $subject->section?->name,
-                'year_level' => $subject->yearLevel?->name,
+            'schedule' => [
+                'id'         => $schedule->id,
+                'subject'    => $schedule->subject?->name,
+                'section'    => $schedule->section?->name,
+                'year_level' => $schedule->subject?->yearLevel?->name,
             ],
             'summary' => [
                 'total_sessions' => $totalSessions,
@@ -100,29 +95,24 @@ class ReportController extends Controller
     }
 
     // ─── Students Overall Attendance ──────────────────────────────────────────
-    //
-    // GET /api/professor/reports/student-attendance?subject_id=1
-    //
-    // Returns: per-student attendance summary (present, late, absent, rate)
-    // across all ended sessions for the given subject.
 
     public function studentAttendance(Request $request)
     {
         $request->validate([
-            'subject_id' => 'required|exists:subjects,id',
+            'schedule_id' => 'required|exists:schedules,id',
         ]);
 
-        $subject = Subject::where('id', $request->subject_id)
+        $schedule = Schedule::where('id', $request->schedule_id)
             ->where('professor_id', $request->user()->id)
-            ->with('section', 'yearLevel')
+            ->with('subject.yearLevel', 'section')
             ->first();
 
-        if (!$subject) {
-            return response()->json(['success' => false, 'message' => 'Subject not found or access denied.'], 403);
+        if (!$schedule) {
+            return response()->json(['success' => false, 'message' => 'Schedule not found or access denied.'], 403);
         }
 
-        $sectionId   = $subject->section_id;
-        $sessionIds  = ClassSession::where('subject_id', $subject->id)
+        $sectionId   = $schedule->section_id;
+        $sessionIds  = ClassSession::where('schedule_id', $schedule->id)
             ->where('status', 'ended')
             ->pluck('id');
         $sessionCount = $sessionIds->count();
@@ -159,11 +149,11 @@ class ReportController extends Controller
 
         return response()->json([
             'success'       => true,
-            'subject'       => [
-                'id'         => $subject->id,
-                'name'       => $subject->name,
-                'section'    => $subject->section?->name,
-                'year_level' => $subject->yearLevel?->name,
+            'schedule'      => [
+                'id'         => $schedule->id,
+                'subject'    => $schedule->subject?->name,
+                'section'    => $schedule->section?->name,
+                'year_level' => $schedule->subject?->yearLevel?->name,
             ],
             'session_count' => $sessionCount,
             'students'      => $studentData,
@@ -171,31 +161,26 @@ class ReportController extends Controller
     }
 
     // ─── Students At Risk ─────────────────────────────────────────────────────
-    //
-    // GET /api/professor/reports/at-risk?subject_id=1&threshold=3
-    //
-    // Returns: students with absences >= threshold (default: 3).
-    // Professors can customize the threshold per their school's policy.
 
     public function atRisk(Request $request)
     {
         $request->validate([
-            'subject_id' => 'required|exists:subjects,id',
-            'threshold'  => 'nullable|integer|min:1',
+            'schedule_id' => 'required|exists:schedules,id',
+            'threshold'   => 'nullable|integer|min:1',
         ]);
 
-        $subject = Subject::where('id', $request->subject_id)
+        $schedule = Schedule::where('id', $request->schedule_id)
             ->where('professor_id', $request->user()->id)
-            ->with('section', 'yearLevel')
+            ->with('subject.yearLevel', 'section')
             ->first();
 
-        if (!$subject) {
-            return response()->json(['success' => false, 'message' => 'Subject not found or access denied.'], 403);
+        if (!$schedule) {
+            return response()->json(['success' => false, 'message' => 'Schedule not found or access denied.'], 403);
         }
 
         $threshold   = (int) ($request->threshold ?? 3);
-        $sectionId   = $subject->section_id;
-        $sessionIds  = ClassSession::where('subject_id', $subject->id)
+        $sectionId   = $schedule->section_id;
+        $sessionIds  = ClassSession::where('schedule_id', $schedule->id)
             ->where('status', 'ended')
             ->pluck('id');
         $sessionCount = $sessionIds->count();
@@ -235,11 +220,11 @@ class ReportController extends Controller
 
         return response()->json([
             'success'       => true,
-            'subject'       => [
-                'id'         => $subject->id,
-                'name'       => $subject->name,
-                'section'    => $subject->section?->name,
-                'year_level' => $subject->yearLevel?->name,
+            'schedule'      => [
+                'id'         => $schedule->id,
+                'subject'    => $schedule->subject?->name,
+                'section'    => $schedule->section?->name,
+                'year_level' => $schedule->subject?->yearLevel?->name,
             ],
             'threshold'     => $threshold,
             'session_count' => $sessionCount,

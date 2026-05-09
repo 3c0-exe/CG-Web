@@ -18,8 +18,8 @@ class Section extends Model
         return $this->hasMany(User::class, 'section_id');
     }
 
-    public function subjects()
+    public function schedules()
     {
-        return $this->hasMany(Subject::class);
+        return $this->hasMany(Schedule::class);
     }
 }

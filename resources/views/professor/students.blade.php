@@ -136,8 +136,8 @@
   async function init() {
     try {
       // Correct route — backend scopes to the authenticated professor automatically
-      const res = await axios.get('/api/professor/subjects');
-      mySubjects = res.data.subjects;
+      const res = await axios.get('/api/professor/schedules');
+      mySubjects = res.data.schedules;
 
       if (mySubjects.length === 0) {
         document.getElementById('emptyState').innerHTML = `
@@ -147,9 +147,26 @@
         return;
       }
 
-      document.getElementById('subjectSelect').innerHTML =
-        '<option value="">Choose a subject...</option>' +
-        mySubjects.map(s => `<option value="${s.id}">${s.name} – ${s.section?.name || ''}</option>`).join('');
+      // Group for optgroup
+      const groupedSubjects = {};
+      mySubjects.forEach(s => {
+          const subName = s.subject?.name || 'Unknown';
+          if (!groupedSubjects[subName]) {
+              groupedSubjects[subName] = [];
+          }
+          groupedSubjects[subName].push(s);
+      });
+      
+      let optionsHtml = '<option value="">Choose a section...</option>';
+      for (const [subName, schedules] of Object.entries(groupedSubjects)) {
+          optionsHtml += `<optgroup label="${subName}">`;
+          schedules.forEach(s => {
+              optionsHtml += `<option value="${s.id}">${s.section?.name || ''} - ${s.schedule_days ? s.schedule_days.join(', ') : 'TBA'}</option>`;
+          });
+          optionsHtml += `</optgroup>`;
+      }
+
+      document.getElementById('subjectSelect').innerHTML = optionsHtml;
 
       // Auto-select from URL param ?subject=X
       const urlParam = new URLSearchParams(window.location.search).get('subject');
@@ -179,7 +196,7 @@
     document.getElementById('subjectMetaText').textContent =
       `🏫 ${subject.section?.name || '–'}  ·  ⏱ Late: ${subject.late_threshold_minutes} min`;
     document.getElementById('subjectMeta').style.display = 'block';
-    document.getElementById('topbarSubtitle').textContent = subject.name;
+    document.getElementById('topbarSubtitle').textContent = subject.subject?.name || 'Subject';
 
     document.getElementById('studentsSection').style.display = 'block';
     document.getElementById('emptyState').style.display = 'none';
@@ -188,7 +205,7 @@
       '<tr><td colspan="8" style="text-align:center; padding:40px; color:var(--gray-400);">Loading students...</td></tr>';
 
     try {
-      const res = await axios.get(`/api/professor/students?subject_id=${subjectId}`);
+      const res = await axios.get(`/api/professor/students?schedule_id=${subjectId}`);
       allStudents = res.data.students;
       sessionCount = res.data.session_count || 0;
       renderStudents(allStudents);

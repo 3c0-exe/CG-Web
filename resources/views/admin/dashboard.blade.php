@@ -8,9 +8,12 @@
     <a href="{{ url('/admin/dashboard') }}" class="nav-item active"><span class="nav-icon">📊</span><span>Dashboard</span></a>
     <a href="{{ url('/admin/users') }}" class="nav-item"><span class="nav-icon">👥</span><span>User Management</span></a>
     <a href="{{ url('/admin/sections') }}" class="nav-item"><span class="nav-icon">🏫</span><span>Sections</span></a>
-    <a href="{{ url('/admin/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>Subjects</span></a>
-    <a href="{{ url('/admin/rooms') }}" class="nav-item"><span class="nav-icon">🏠</span><span>Room Availability</span></a>
-<div class="nav-divider"></div>
+    <a href="{{ url('/admin/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>Master Subjects</span></a>
+    <a href="{{ url('/admin/schedules') }}" class="nav-item"><span class="nav-icon">📅</span><span>Schedules</span></a>
+    <a href="{{ url('/admin/prospectus') }}" class="nav-item"><span class="nav-icon">📋</span><span>Prospectus</span></a>
+    <a href="{{ url('/admin/rooms') }}" class="nav-item"><span class="nav-icon">🏠</span><span>Rooms</span></a>
+    <a href="{{ url('/admin/devices') }}" class="nav-item"><span class="nav-icon">📡</span><span>Devices</span></a>
+    <div class="nav-divider"></div>
     <a href="#" class="nav-item" onclick="openPasswordModal()"><span class="nav-icon">🔒</span><span>Change Password</span></a>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
   </nav>
@@ -110,34 +113,12 @@
     </div>
     <div class="form-group">
       <label class="form-label">Year Level</label>
-      <select class="form-select" id="subjYearLevel" onchange="loadSections(this.value)">
+      <select class="form-select" id="subjYearLevel">
         <option value="">Select year level...</option>
       </select>
     </div>
-    <div class="form-group">
-      <label class="form-label">Section</label>
-      <select class="form-select" id="subjSection">
-        <option value="">Select section...</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Professor</label>
-      <select class="form-select" id="subjProfessor">
-        <option value="">Select professor...</option>
-      </select>
-    </div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-      <div class="form-group">
-        <label class="form-label">Late Threshold (minutes)</label>
-        <input type="number" class="form-input" id="subjLateThreshold" value="15" min="1" max="60">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Allow Guest Students</label>
-        <select class="form-select" id="subjAllowGuests">
-          <option value="1">Yes</option>
-          <option value="0">No</option>
-        </select>
-      </div>
+    <div style="font-size:12px; color:var(--gray-500); margin-top:16px;">
+      Note: Sections, Professors, and Times are assigned under the <b>Schedules</b> tab after creating this Master Subject.
     </div>
     <div style="display:flex; gap:12px; margin-top:8px;">
       <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('subjectModal').style.display='none'">Cancel</button>
@@ -206,33 +187,13 @@
     document.getElementById('subjectError').style.display = 'none';
     document.getElementById('subjName').value = '';
     document.getElementById('subjCode').value = '';
-    document.getElementById('subjLateThreshold').value = '15';
     try {
-      const [ylRes, profRes] = await Promise.all([
-        axios.get('/api/admin/year-levels'),
-        axios.get('/api/admin/users?role=professor'),
-      ]);
+      const ylRes = await axios.get('/api/admin/year-levels');
       yearLevelsData = ylRes.data.year_levels;
-      professorsData = profRes.data.users;
       document.getElementById('subjYearLevel').innerHTML =
         '<option value="">Select year level...</option>' +
         yearLevelsData.map(yl => `<option value="${yl.id}">${yl.name}</option>`).join('');
-      document.getElementById('subjProfessor').innerHTML =
-        '<option value="">Select professor...</option>' +
-        professorsData.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-      document.getElementById('subjSection').innerHTML = '<option value="">Select year level first...</option>';
     } catch (e) { console.error('Failed to load form data', e); }
-  }
-
-  function loadSections(yearLevelId) {
-    const yl = yearLevelsData.find(y => y.id == yearLevelId);
-    if (!yl || !yl.sections) {
-      document.getElementById('subjSection').innerHTML = '<option value="">No sections found</option>';
-      return;
-    }
-    document.getElementById('subjSection').innerHTML =
-      '<option value="">Select section...</option>' +
-      yl.sections.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
   }
 
   async function saveSubject() {
@@ -241,12 +202,8 @@
     const name = document.getElementById('subjName').value.trim();
     const code = document.getElementById('subjCode').value.trim();
     const yearLevelId = document.getElementById('subjYearLevel').value;
-    const sectionId = document.getElementById('subjSection').value;
-    const professorId = document.getElementById('subjProfessor').value;
-    const lateThreshold = document.getElementById('subjLateThreshold').value;
-    const allowGuests = document.getElementById('subjAllowGuests').value;
 
-    if (!name || !code || !yearLevelId || !sectionId || !professorId) {
+    if (!name || !code || !yearLevelId) {
       errEl.textContent = '❌ Please fill in all required fields.';
       errEl.style.display = 'block';
       return;
@@ -257,10 +214,6 @@
       await axios.post('/api/admin/subjects', {
         name, code,
         year_level_id: yearLevelId,
-        section_id: sectionId,
-        professor_id: professorId,
-        late_threshold_minutes: lateThreshold,
-        allow_guests: allowGuests == '1',
       });
       document.getElementById('subjectModal').style.display = 'none';
       loadDashboard();

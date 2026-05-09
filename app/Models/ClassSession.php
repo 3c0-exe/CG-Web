@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class ClassSession extends Model
 {
     protected $fillable = [
-        'session_id', 'subject_id', 'professor_id', 'room_id',
+        'session_id', 'schedule_id', 'professor_id', 'room_id',
         'started_at', 'ended_at', 'status',
         'present_count', 'absent_count', 'late_count'
     ];
@@ -17,9 +17,9 @@ class ClassSession extends Model
         'ended_at' => 'datetime',
     ];
 
-    public function subject()
+    public function schedule()
     {
-        return $this->belongsTo(Subject::class);
+        return $this->belongsTo(Schedule::class);
     }
 
     public function professor()

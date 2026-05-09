@@ -31,7 +31,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Professor Routes
     Route::prefix('professor')->group(function () {
-        Route::get('/subjects', [AdminController::class, 'professorSubjects']);
+        Route::get('/schedules', [AdminController::class, 'professorSchedules']);
         Route::post('/session/start', [SessionController::class, 'startSession']);
         Route::post('/session/end/{sessionId}', [SessionController::class, 'endSession']);
         Route::get('/session/active', [SessionController::class, 'activeSessions']);
@@ -64,17 +64,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/users/{userId}/add-section', [AdminController::class, 'addSection']);
         Route::delete('/users/{userId}/remove-section/{sectionId}', [AdminController::class, 'removeSection']);
 
-        // Subjects
+        // Subjects (master records)
         Route::get('/subjects', [AdminController::class, 'allSubjects']);
         Route::post('/subjects', [AdminController::class, 'createSubject']);
         Route::patch('/subjects/{subjectId}', [AdminController::class, 'updateSubject']);
         Route::delete('/subjects/{subjectId}', [AdminController::class, 'deleteSubject']);
 
-        // Subject Enrollments
-        Route::get('/subjects/{subjectId}/enrollments', [AdminController::class, 'subjectEnrollments']);
-        Route::get('/subjects/{subjectId}/available-students', [AdminController::class, 'availableStudentsForSubject']);
-        Route::post('/subjects/{subjectId}/enroll', [AdminController::class, 'enrollStudents']);
-        Route::delete('/subjects/{subjectId}/unenroll/{studentId}', [AdminController::class, 'unenrollStudent']);
+        // Schedules
+        Route::get('/schedules', [AdminController::class, 'allSchedules']);
+        Route::post('/schedules', [AdminController::class, 'createSchedule']);
+        Route::patch('/schedules/{scheduleId}', [AdminController::class, 'updateSchedule']);
+        Route::delete('/schedules/{scheduleId}', [AdminController::class, 'deleteSchedule']);
+
+        // Schedule Enrollments
+        Route::get('/schedules/{scheduleId}/enrollments', [AdminController::class, 'scheduleEnrollments']);
+        Route::get('/schedules/{scheduleId}/available-students', [AdminController::class, 'availableStudentsForSchedule']);
+        Route::post('/schedules/{scheduleId}/enroll', [AdminController::class, 'enrollStudents']);
+        Route::delete('/schedules/{scheduleId}/unenroll/{studentId}', [AdminController::class, 'unenrollStudent']);
+
+        // Prospectus
+        Route::get('/prospectus', [AdminController::class, 'prospectus']);
 
         // Rooms
         Route::get('/rooms', [AdminController::class, 'allRooms']);
@@ -90,5 +99,15 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/sections/{sectionId}/students', [AdminController::class, 'sectionStudents']);
         Route::post('/sections/{sectionId}/students', [AdminController::class, 'enrollStudentToSection']);
         Route::delete('/sections/{sectionId}/students/{studentId}', [AdminController::class, 'unenrollStudentFromSection']);
+
+        // Devices
+        Route::get('/devices', [AdminController::class, 'allDevices']);
+        Route::post('/devices', [AdminController::class, 'registerDevice']);
+        Route::patch('/devices/{deviceId}/toggle', [AdminController::class, 'toggleDevice']);
+        Route::delete('/devices/{deviceId}', [AdminController::class, 'deleteDevice']);
+
+        // Export / Import
+        Route::get('/export/setup', [AdminController::class, 'exportSetup']);
+        Route::post('/import/setup', [AdminController::class, 'importSetup']);
     });
 });

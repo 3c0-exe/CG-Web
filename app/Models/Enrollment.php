@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Enrollment extends Model
 {
     protected $fillable = [
-        'student_id', 'subject_id', 'enrollment_type', 'home_section_id'
+        'student_id', 'schedule_id', 'enrollment_type', 'home_section_id'
     ];
 
     public function student()
@@ -15,9 +15,9 @@ class Enrollment extends Model
         return $this->belongsTo(User::class, 'student_id');
     }
 
-    public function subject()
+    public function schedule()
     {
-        return $this->belongsTo(Subject::class);
+        return $this->belongsTo(Schedule::class);
     }
 
     public function homeSection()

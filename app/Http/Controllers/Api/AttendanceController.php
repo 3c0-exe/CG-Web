@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\ClassSession;
 use App\Models\User;
+use App\Models\Device;
 use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
@@ -18,9 +19,19 @@ class AttendanceController extends Controller
             'uid'        => 'required|string',
         ]);
 
+        // Device Check
+        $deviceId = $request->header('X-Device-ID');
+        if ($deviceId) {
+            $device = Device::where('device_id', $deviceId)->first();
+            if (!$device || !$device->is_active) {
+                return response()->json(['success' => false, 'message' => 'Unauthorized device'], 403);
+            }
+            $device->update(['last_seen_at' => now()]);
+        }
+
         $session = ClassSession::where('session_id', $request->session_id)
             ->where('status', 'active')
-            ->with('subject')
+            ->with('schedule')
             ->first();
 
         if (!$session) {
@@ -33,18 +44,18 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Card not registered'], 404);
         }
 
-        // Check if this student belongs to the session's section OR is explicitly enrolled in the subject
-        $sessionSectionId = $session->subject->section_id;
+        // Check if this student belongs to the session's section OR is explicitly enrolled in the schedule
+        $sessionSectionId = $session->schedule->section_id;
 
         $belongsToSection = ($student->section_id == $sessionSectionId)
             || $student->sections()->where('sections.id', $sessionSectionId)->exists();
 
-        $enrolledInSubject = \App\Models\Enrollment::where('subject_id', $session->subject_id)
+        $enrolledInSchedule = \App\Models\Enrollment::where('schedule_id', $session->schedule_id)
             ->where('student_id', $student->id)
             ->exists();
 
-        if (!$belongsToSection && !$enrolledInSubject) {
-            return response()->json(['success' => false, 'message' => 'Student not enrolled in this subject or section'], 403);
+        if (!$belongsToSection && !$enrolledInSchedule) {
+            return response()->json(['success' => false, 'message' => 'Student not enrolled in this class or section'], 403);
         }
 
         // Prevent duplicate scan
@@ -57,10 +68,10 @@ class AttendanceController extends Controller
         }
 
         // Determine present or late immediately based on Professor's setting
-$threshold = $session->subject->late_threshold_minutes ?? 15;
-$minutesLate = $session->started_at->diffInMinutes(now(), false);
-$status = $minutesLate > $threshold ? 'late' : 'present';
-\Log::info("LATE CHECK", ['threshold' => $threshold, 'minutesLate' => $minutesLate, 'status' => $status]);
+        $threshold = $session->schedule->late_threshold_minutes ?? 15;
+        $minutesLate = $session->started_at->diffInMinutes(now(), false);
+        $status = $minutesLate > $threshold ? 'late' : 'present';
+        \Log::info("LATE CHECK", ['threshold' => $threshold, 'minutesLate' => $minutesLate, 'status' => $status]);
 
         $record = AttendanceRecord::create([
             'session_id'        => $session->id,
@@ -95,7 +106,7 @@ $status = $minutesLate > $threshold ? 'late' : 'present';
 
         return response()->json([
             'success' => true,
-            'session' => $session->load('subject.section', 'room'),
+            'session' => $session->load('schedule.subject', 'schedule.section', 'room'),
             'records' => $records,
         ]);
     }

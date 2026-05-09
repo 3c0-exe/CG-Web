@@ -8,8 +8,11 @@
     <a href="{{ url('/admin/dashboard') }}" class="nav-item"><span class="nav-icon">📊</span><span>Dashboard</span></a>
     <a href="{{ url('/admin/users') }}" class="nav-item active"><span class="nav-icon">👥</span><span>User Management</span></a>
     <a href="{{ url('/admin/sections') }}" class="nav-item"><span class="nav-icon">🏫</span><span>Sections</span></a>
-    <a href="{{ url('/admin/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>Subjects</span></a>
-    <a href="{{ url('/admin/rooms') }}" class="nav-item"><span class="nav-icon">🏠</span><span>Room Availability</span></a>
+    <a href="{{ url('/admin/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>Master Subjects</span></a>
+    <a href="{{ url('/admin/schedules') }}" class="nav-item"><span class="nav-icon">📅</span><span>Schedules</span></a>
+    <a href="{{ url('/admin/prospectus') }}" class="nav-item"><span class="nav-icon">📋</span><span>Prospectus</span></a>
+    <a href="{{ url('/admin/rooms') }}" class="nav-item"><span class="nav-icon">🏠</span><span>Rooms</span></a>
+    <a href="{{ url('/admin/devices') }}" class="nav-item"><span class="nav-icon">📡</span><span>Devices</span></a>
     <div class="nav-divider"></div>
     <a href="#" class="nav-item" onclick="openPasswordModal()"><span class="nav-icon">🔒</span><span>Change Password</span></a>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>

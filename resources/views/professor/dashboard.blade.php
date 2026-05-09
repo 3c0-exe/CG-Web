@@ -85,6 +85,21 @@
     </div>
   </div>
 </main>
+<!-- Select Section Modal -->
+<div id="selectSectionModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:190; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:400px;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:6px;">Select Section</h3>
+    <p style="font-size:13px; color:var(--gray-500); margin-bottom:20px;" id="selectSectionSubjectName">–</p>
+    
+    <div id="sectionOptionsList" style="display:flex; flex-direction:column; gap:8px;">
+    </div>
+    
+    <div style="display:flex; margin-top:20px;">
+      <button class="btn btn-ghost" style="width:100%;" onclick="document.getElementById('selectSectionModal').style.display='none'">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Start Session Modal -->
 <div id="startSessionModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
   <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:400px;">
@@ -120,39 +135,55 @@
 
   async function loadDashboard() {
     try {
-      const [subjectsRes, activeRes, historyRes] = await Promise.all([
-        axios.get('/api/professor/subjects'),         
+      const [schedulesRes, activeRes, historyRes] = await Promise.all([
+        axios.get('/api/professor/schedules'),         
         axios.get('/api/professor/session/active'),   
         axios.get('/api/professor/session/history')   
       ]);
 
-      // No need to filter by user.id anymore, the backend handles it!
-      mySubjects = subjectsRes.data.subjects;
+      mySubjects = schedulesRes.data.schedules;
       const activeSessions = activeRes.data.sessions;
       const history = historyRes.data.sessions;
 
-      document.getElementById('subjectCount').textContent = mySubjects.length;
+      groupedSubjects = {};
+      mySubjects.forEach(s => {
+          const subId = s.subject.id;
+          if (!groupedSubjects[subId]) {
+              groupedSubjects[subId] = {
+                  subject: s.subject,
+                  schedules: []
+              };
+          }
+          groupedSubjects[subId].schedules.push(s);
+      });
+      const subjectList = Object.values(groupedSubjects);
+
+      document.getElementById('subjectCount').textContent = subjectList.length;
       document.getElementById('activeCount').textContent = activeSessions.length;
       document.getElementById('historyCount').textContent = history.length;
 
-      if (mySubjects.length === 0) {
+      if (subjectList.length === 0) {
         document.getElementById('subjectsList').innerHTML = '<div style="text-align:center; padding:32px; color:var(--gray-400);">No subjects assigned yet.</div>';
       } else {
-        document.getElementById('subjectsList').innerHTML = mySubjects.map(s => {
-          const isActive = activeSessions.find(a => a.subject_id === s.id);
+        document.getElementById('subjectsList').innerHTML = subjectList.map(group => {
+          const activeSchedule = group.schedules.find(s => activeSessions.find(a => a.schedule_id === s.id));
+          const isActive = !!activeSchedule;
+          const activeSessionInfo = activeSchedule ? activeSessions.find(a => a.schedule_id === activeSchedule.id) : null;
+          const sectionsStr = group.schedules.map(s => s.section.name).join(', ');
+
           return `
             <div style="border:1px solid ${isActive ? 'var(--green)' : 'var(--gray-200)'}; border-radius:8px; padding:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; background:${isActive ? 'rgba(16,185,129,0.02)' : 'transparent'};">
               <div>
                 <div style="display:flex; align-items:center; gap:8px; margin-bottom:2px;">
-                  <div style="font-size:14px; font-weight:600; color:var(--gray-900);">${s.name}</div>
+                  <div style="font-size:14px; font-weight:600; color:var(--gray-900);">${group.subject?.name || 'Unknown'}</div>
                   ${isActive ? '<span class="live-badge"><span class="live-dot"></span>LIVE</span>' : ''}
                 </div>
-                <div style="font-size:12px; color:var(--gray-500);">${s.section?.name || 'No Section'} · ${s.year_level?.name || 'No Year'}</div>
+                <div style="font-size:12px; color:var(--gray-500);">Sections: ${sectionsStr}</div>
               </div>
               <div style="display:flex; gap:8px;">
                 ${isActive
-                  ? `<a href="{{ url('/professor/live-attendance') }}?session=${isActive.session_id}" class="btn btn-success btn-sm">View Live</a>`
-                  : `<button class="btn btn-primary btn-sm" onclick="startSession(${s.id})">▶ Start</button>`
+                  ? `<a href="{{ url('/professor/live-attendance') }}?session=${activeSessionInfo.session_id}" class="btn btn-success btn-sm">View Live</a>`
+                  : `<button class="btn btn-primary btn-sm" onclick="openSelectSectionModal(${group.subject.id})">▶ Start</button>`
                 }
                 <a href="{{ url('/professor/history') }}" class="btn btn-ghost btn-sm">History</a>
               </div>
@@ -181,12 +212,33 @@
     }
   }
 
-  let pendingSubjectId = null;
+  let pendingScheduleId = null;
+  let groupedSubjects = {};
 
-  async function startSession(subjectId) {
-    pendingSubjectId = subjectId;
-    const subject = mySubjects.find(s => s.id === subjectId);
-    document.getElementById('startSessionSubjectName').textContent = subject?.name || '–';
+  function openSelectSectionModal(subjectId) {
+      const group = groupedSubjects[subjectId];
+      if(!group) return;
+      
+      document.getElementById('selectSectionSubjectName').textContent = group.subject.name;
+      
+      const optionsHtml = group.schedules.map(s => {
+          return `<button class="btn btn-ghost" style="width:100%; text-align:left; border: 1px solid var(--gray-200); padding: 12px; justify-content: flex-start; margin-bottom: 4px;" onclick="startSession(${s.id})">
+            <div>
+              <div style="font-weight: 600; color: var(--gray-800);">${s.section.name}</div>
+              <div style="font-size: 11px; color: var(--gray-500); font-weight: 400;">Schedule: ${s.schedule_days ? s.schedule_days.join(', ') : 'TBA'} ${s.schedule_start_time ? '(' + s.schedule_start_time + ')' : ''}</div>
+            </div>
+          </button>`;
+      }).join('');
+      
+      document.getElementById('sectionOptionsList').innerHTML = optionsHtml;
+      document.getElementById('selectSectionModal').style.display = 'flex';
+  }
+
+  async function startSession(scheduleId) {
+    document.getElementById('selectSectionModal').style.display = 'none';
+    pendingScheduleId = scheduleId;
+    const schedule = mySubjects.find(s => s.id === scheduleId);
+    document.getElementById('startSessionSubjectName').textContent = (schedule?.subject?.name || '–') + ' (' + (schedule?.section?.name || '-') + ')';
     document.getElementById('startSessionError').style.display = 'none';
     document.getElementById('startSessionBtn').disabled = false;
     document.getElementById('startSessionBtn').textContent = 'Start Session';
@@ -231,7 +283,7 @@
 
     try {
       const res = await axios.post('/api/professor/session/start', {
-        subject_id: pendingSubjectId,
+        schedule_id: pendingScheduleId,
         room_id: roomId,
         override: scheduleOverride,
       });

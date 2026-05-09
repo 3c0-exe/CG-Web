@@ -128,8 +128,8 @@
     document.getElementById('summaryCards').style.display = 'none';
 
     try {
-      const subjectsRes = await axios.get('/api/professor/subjects');
-      const subjects = subjectsRes.data.subjects;
+      const subjectsRes = await axios.get('/api/professor/schedules');
+      const subjects = subjectsRes.data.schedules;
 
       if (subjects.length === 0) {
         document.getElementById('loadingState').style.display = 'none';
@@ -141,8 +141,8 @@
       // Load all at-risk reports in parallel
       const reports = await Promise.all(
         subjects.map(s =>
-          axios.get(`/api/professor/reports/at-risk?subject_id=${s.id}&threshold=${threshold}`)
-            .then(r => ({ subject: s, data: r.data }))
+          axios.get(`/api/professor/reports/at-risk?schedule_id=${s.id}&threshold=${threshold}`)
+            .then(r => ({ schedule: s, data: r.data }))
             .catch(() => null)
         )
       );
@@ -166,60 +166,84 @@
         return;
       }
 
+      const groupedReports = {};
+      validReports.forEach(r => {
+          const subName = r.schedule.subject?.name || 'Unknown Subject';
+          if (!groupedReports[subName]) {
+              groupedReports[subName] = {
+                  subject: r.schedule.subject,
+                  reports: []
+              };
+          }
+          groupedReports[subName].reports.push(r);
+      });
+
       document.getElementById('resultsList').style.display = 'block';
-      document.getElementById('resultsList').innerHTML = validReports.map((r, i) => {
+      document.getElementById('resultsList').innerHTML = Object.values(groupedReports).map((group, i) => {
         const color = colors[i % colors.length];
-        const students = r.data.students;
+        
+        let allStudentsHtml = '';
+        let totalFlaggedInSubject = 0;
 
-        const studentCards = students.map((s, idx) => {
-          const isCritical  = s.absent_count >= threshold * 2;
-          const severity    = isCritical ? 'var(--red)' : 'var(--amber)';
-          const severityBg  = isCritical ? 'rgba(239,68,68,0.05)' : 'rgba(252,211,77,0.06)';
-          const borderColor = isCritical ? 'rgba(239,68,68,0.2)' : 'rgba(252,211,77,0.25)';
-          const label       = isCritical ? '🔴 Critical' : '🟡 Warning';
+        group.reports.forEach(r => {
+            const sectionName = r.schedule.section?.name || 'No Section';
+            const students = r.data.students;
+            totalFlaggedInSubject += students.length;
 
-          return `
-            <div style="border:1px solid ${borderColor}; background:${severityBg}; border-radius:8px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px; flex-wrap:wrap;">
-              <div style="display:flex; align-items:center; gap:12px;">
-                <div style="background:${severity}20; color:${severity}; font-size:12px; font-weight:800; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                  ${idx + 1}
-                </div>
-                <div>
-                  <div style="font-size:14px; font-weight:700; color:var(--gray-900);">${s.name}</div>
-                  <div style="font-size:12px; color:var(--gray-500);">${s.student_id_number || 'No ID'}</div>
-                </div>
-              </div>
-              <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
-                <div style="text-align:center;">
-                  <div style="font-size:11px; color:var(--gray-400);">Present</div>
-                  <div style="font-size:15px; font-weight:700; color:var(--green);">${s.present_count}</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:11px; color:var(--gray-400);">Late</div>
-                  <div style="font-size:15px; font-weight:700; color:var(--amber);">${s.late_count}</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:11px; color:var(--gray-400);">Absent</div>
-                  <div style="font-size:15px; font-weight:700; color:var(--red);">${s.absent_count}</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:11px; color:var(--gray-400);">Rate</div>
-                  <div style="font-size:15px; font-weight:700; color:${severity};">${s.attendance_rate}%</div>
-                </div>
-                <span style="background:${severity}20; color:${severity}; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap;">${label}</span>
-              </div>
-            </div>`;
-        }).join('');
+            const studentCards = students.map((s, idx) => {
+              const isCritical  = s.absent_count >= threshold * 2;
+              const severity    = isCritical ? 'var(--red)' : 'var(--amber)';
+              const severityBg  = isCritical ? 'rgba(239,68,68,0.05)' : 'rgba(252,211,77,0.06)';
+              const borderColor = isCritical ? 'rgba(239,68,68,0.2)' : 'rgba(252,211,77,0.25)';
+              const label       = isCritical ? '🔴 Critical' : '🟡 Warning';
+
+              return `
+                <div style="border:1px solid ${borderColor}; background:${severityBg}; border-radius:8px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px; flex-wrap:wrap;">
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="background:${severity}20; color:${severity}; font-size:12px; font-weight:800; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                      ${idx + 1}
+                    </div>
+                    <div>
+                      <div style="font-size:14px; font-weight:700; color:var(--gray-900);">
+                         ${s.name} <span style="background:var(--white); border: 1px solid var(--gray-200); color:var(--gray-700); font-size:11px; font-weight: 600; padding:2px 6px; border-radius:4px; margin-left:6px;">${sectionName}</span>
+                      </div>
+                      <div style="font-size:12px; color:var(--gray-500);">${s.student_id_number || 'No ID'}</div>
+                    </div>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+                    <div style="text-align:center;">
+                      <div style="font-size:11px; color:var(--gray-400);">Present</div>
+                      <div style="font-size:15px; font-weight:700; color:var(--green);">${s.present_count}</div>
+                    </div>
+                    <div style="text-align:center;">
+                      <div style="font-size:11px; color:var(--gray-400);">Late</div>
+                      <div style="font-size:15px; font-weight:700; color:var(--amber);">${s.late_count}</div>
+                    </div>
+                    <div style="text-align:center;">
+                      <div style="font-size:11px; color:var(--gray-400);">Absent</div>
+                      <div style="font-size:15px; font-weight:700; color:var(--red);">${s.absent_count}</div>
+                    </div>
+                    <div style="text-align:center;">
+                      <div style="font-size:11px; color:var(--gray-400);">Rate</div>
+                      <div style="font-size:15px; font-weight:700; color:${severity};">${s.attendance_rate}%</div>
+                    </div>
+                    <span style="background:${severity}20; color:${severity}; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; white-space:nowrap;">${label}</span>
+                  </div>
+                </div>`;
+            }).join('');
+            
+            allStudentsHtml += studentCards;
+        });
 
         return `
           <div style="margin-bottom:28px;">
             <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
               <div style="width:10px; height:10px; border-radius:50%; background:${color}; flex-shrink:0;"></div>
-              <div style="font-size:15px; font-weight:700; color:var(--gray-900);">${r.subject.name}</div>
-              <div style="font-size:12px; color:var(--gray-500);">${r.subject.year_level?.name || ''} · ${r.subject.section?.name || ''}</div>
-              <span style="background:rgba(239,68,68,0.1); color:var(--red); font-size:12px; font-weight:700; padding:2px 10px; border-radius:20px; margin-left:auto;">${students.length} flagged</span>
+              <div style="font-size:15px; font-weight:700; color:var(--gray-900);">${group.subject?.name || 'Subject'}</div>
+              <div style="font-size:12px; color:var(--gray-500);">${group.subject?.year_level?.name || ''}</div>
+              <span style="background:rgba(239,68,68,0.1); color:var(--red); font-size:12px; font-weight:700; padding:2px 10px; border-radius:20px; margin-left:auto;">${totalFlaggedInSubject} flagged</span>
             </div>
-            ${studentCards}
+            ${allStudentsHtml}
           </div>`;
       }).join('');
 

@@ -98,72 +98,51 @@
 
   async function loadOverview() {
     try {
-      const subjectsRes = await axios.get('/api/professor/subjects');
-      const subjects = subjectsRes.data.subjects;
+      const subjectsRes = await axios.get('/api/professor/schedules');
+      const schedules = subjectsRes.data.schedules;
 
-      if (subjects.length === 0) {
+      if (schedules.length === 0) {
         document.getElementById('subjectCards').innerHTML =
           '<div style="text-align:center; padding:64px; color:var(--gray-400); grid-column:1/-1;"><div style="font-size:40px; margin-bottom:12px;">📚</div>No subjects assigned yet.</div>';
         return;
       }
 
-      // Load all student reports in parallel
-      const reports = await Promise.all(
-        subjects.map(s =>
-          axios.get(`/api/professor/reports/student-attendance?subject_id=${s.id}`)
-            .then(r => r.data)
-            .catch(() => null)
-        )
-      );
+      const groupedSubjects = {};
+      schedules.forEach(s => {
+          const subId = s.subject.id;
+          if (!groupedSubjects[subId]) {
+              groupedSubjects[subId] = {
+                  subject: s.subject,
+                  schedules: []
+              };
+          }
+          groupedSubjects[subId].schedules.push(s);
+      });
+      const subjectList = Object.values(groupedSubjects);
 
-      document.getElementById('subjectCards').innerHTML = subjects.map((s, i) => {
-        const report   = reports[i];
-        const color    = colors[i % colors.length];
-        const students = report?.students ?? [];
-        const sessions = report?.session_count ?? 0;
-        const total    = students.length;
-        const avgRate  = total > 0
-          ? Math.round(students.reduce((sum, st) => sum + st.attendance_rate, 0) / total)
-          : null;
-        const perfect  = students.filter(st => st.attendance_rate === 100).length;
-        const below    = students.filter(st => st.attendance_rate < 80).length;
-        const rateColor = avgRate === null ? 'var(--gray-400)' : avgRate >= 80 ? 'var(--green)' : avgRate >= 60 ? 'var(--amber)' : 'var(--red)';
+      document.getElementById('subjectCards').innerHTML = subjectList.map((group, i) => {
+        const color = colors[i % colors.length];
+        
+        const sectionsHtml = group.schedules.map(s => `
+          <button class="btn btn-ghost btn-sm" style="margin:4px; border:1px solid var(--gray-200);" 
+            onclick="openDrill(${s.id}, '${group.subject.name.replace(/'/g,"\\\\'")}', '${s.section.name}')">
+            ${s.section.name} Records →
+          </button>
+        `).join('');
 
         return `
-          <div style="background:var(--white); border:1px solid var(--gray-200); border-radius:8px; overflow:hidden; cursor:pointer; transition:box-shadow 0.15s ease;"
-               onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; this.style.borderColor='${color}'"
-               onmouseout="this.style.boxShadow='none'; this.style.borderColor='var(--gray-200)'"
-               onclick="openDrill(${s.id}, '${s.name.replace(/'/g,"\\'")}', '${s.year_level?.name || ''} – ${s.section?.name || ''}')">
+          <div style="background:var(--white); border:1px solid var(--gray-200); border-radius:8px; overflow:hidden;">
             <div style="background:${color}; padding:16px 20px; display:flex; justify-content:space-between; align-items:center;">
               <div>
-                <div style="font-size:15px; font-weight:700; color:var(--white);">${s.name}</div>
-                <div style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">${s.year_level?.name || ''} · ${s.section?.name || 'No Section'}</div>
-              </div>
-              <div style="text-align:right;">
-                <div style="font-size:26px; font-weight:800; color:var(--white); line-height:1;">${avgRate !== null ? avgRate + '%' : '–'}</div>
-                <div style="font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px;">avg rate</div>
+                <div style="font-size:15px; font-weight:700; color:var(--white);">${group.subject?.name || 'Subject'}</div>
+                <div style="font-size:12px; color:rgba(255,255,255,0.6); margin-top:2px;">${group.subject?.year_level?.name || ''}</div>
               </div>
             </div>
-            <div style="padding:14px 20px; display:flex; justify-content:space-between; align-items:center;">
-              <div style="display:flex; gap:20px;">
-                <div style="text-align:center;">
-                  <div style="font-size:11px; color:var(--gray-400); margin-bottom:2px;">Students</div>
-                  <div style="font-size:16px; font-weight:700; color:var(--gray-900);">${total}</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:11px; color:var(--gray-400); margin-bottom:2px;">Sessions</div>
-                  <div style="font-size:16px; font-weight:700; color:var(--gray-900);">${sessions}</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:11px; color:var(--gray-400); margin-bottom:2px;">Perfect</div>
-                  <div style="font-size:16px; font-weight:700; color:var(--green);">${perfect}</div>
-                </div>
-                <div style="text-align:center;">
-                  <div style="font-size:11px; color:var(--gray-400); margin-bottom:2px;">Below 80%</div>
-                  <div style="font-size:16px; font-weight:700; color:${below > 0 ? 'var(--red)' : 'var(--gray-400)'};">${below}</div>
-                </div>
+            <div style="padding:14px 20px;">
+              <div style="font-size:13px; color:var(--gray-600); margin-bottom:12px; font-weight:600;">Select Section to View Records:</div>
+              <div style="display:flex; flex-wrap:wrap; margin:-4px;">
+                ${sectionsHtml}
               </div>
-              <div style="font-size:12px; color:var(--gray-400);">View students →</div>
             </div>
           </div>`;
       }).join('');
@@ -184,7 +163,7 @@
     document.getElementById('drillDown').scrollIntoView({ behavior: 'smooth', block: 'start' });
 
     try {
-      const res = await axios.get(`/api/professor/reports/student-attendance?subject_id=${subjectId}`);
+      const res = await axios.get(`/api/professor/reports/student-attendance?schedule_id=${subjectId}`);
       allStudents = res.data.students;
       renderRows(allStudents);
     } catch (e) {

@@ -114,8 +114,8 @@
         return `
           <tr>
             <td><strong>${formatDate(s.started_at)}</strong><br><span style="font-size:12px;color:var(--gray-500);">${formatTime(s.started_at)}${s.ended_at ? ' – ' + formatTime(s.ended_at) : ''}</span></td>
-            <td>${s.subject?.name || '–'}</td>
-            <td>${s.subject?.section?.name || '–'}</td>
+            <td>${s.schedule?.subject?.name || '–'}</td>
+            <td>${s.schedule?.section?.name || '–'}</td>
             <td style="color:var(--green); font-weight:600">${s.present_count}</td>
             <td style="color:#D97706; font-weight:600">${s.late_count}</td>
             <td style="color:var(--red); font-weight:600">${s.absent_count}</td>

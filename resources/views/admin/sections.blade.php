@@ -5,11 +5,14 @@
 <aside class="sidebar">
 <div class="logo"><img src="{{ asset('images/blue-gold-cg-bgremoved.png') }}" alt="ClassGuard" style="height:40px; width:auto;"><span class="logo-text">ClassGuard</span></div>
   <nav>
-    <a href="{{ url('/admin/dashboard') }}" class="nav-item"><span class="nav-icon">📊</span><span>Dashboard</span></a>
-    <a href="{{ url('/admin/users') }}" class="nav-item"><span class="nav-icon">👥</span><span>User Management</span></a>
+    <a href="{{ url('/admin/dashboard') }}" class="nav-item {{ request()->is('admin/dashboard') ? 'active' : '' }}"><span class="nav-icon">📊</span><span>Dashboard</span></a>
+    <a href="{{ url('/admin/users') }}" class="nav-item {{ request()->is('admin/users') ? 'active' : '' }}"><span class="nav-icon">👥</span><span>User Management</span></a>
     <a href="{{ url('/admin/sections') }}" class="nav-item active"><span class="nav-icon">🏫</span><span>Sections</span></a>
-    <a href="{{ url('/admin/subjects') }}" class="nav-item"><span class="nav-icon">📚</span><span>Subjects</span></a>
-    <a href="{{ url('/admin/rooms') }}" class="nav-item"><span class="nav-icon">🏠</span><span>Room Availability</span></a>
+    <a href="{{ url('/admin/subjects') }}" class="nav-item {{ request()->is('admin/subjects') ? 'active' : '' }}"><span class="nav-icon">📚</span><span>Master Subjects</span></a>
+    <a href="{{ url('/admin/schedules') }}" class="nav-item {{ request()->is('admin/schedules') ? 'active' : '' }}"><span class="nav-icon">📅</span><span>Schedules</span></a>
+    <a href="{{ url('/admin/prospectus') }}" class="nav-item {{ request()->is('admin/prospectus') ? 'active' : '' }}"><span class="nav-icon">📋</span><span>Prospectus</span></a>
+    <a href="{{ url('/admin/rooms') }}" class="nav-item {{ request()->is('admin/rooms') ? 'active' : '' }}"><span class="nav-icon">🏠</span><span>Rooms</span></a>
+    <a href="{{ url('/admin/devices') }}" class="nav-item {{ request()->is('admin/devices') ? 'active' : '' }}"><span class="nav-icon">📡</span><span>Devices</span></a>
     <div class="nav-divider"></div>
     <a href="#" class="nav-item" onclick="openPasswordModal()"><span class="nav-icon">🔒</span><span>Change Password</span></a>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
@@ -28,7 +31,9 @@
       <h1>Sections</h1>
       <p class="topbar-subtitle">Manage year levels and sections</p>
     </div>
-    <div class="topbar-right">
+    <div class="topbar-right" style="display:flex; gap:8px;">
+      <button class="btn btn-ghost" onclick="exportSetup()">📤 Export Setup</button>
+      <button class="btn btn-ghost" onclick="openImportModal()">📥 Import Setup</button>
       <button class="btn btn-primary" onclick="openAddSection()">+ Add Section</button>
     </div>
   </div>
@@ -178,6 +183,25 @@
     <div style="display:flex; gap:12px; margin-top:8px;">
       <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('editRoomModal').style.display='none'">Cancel</button>
       <button class="btn btn-primary" style="flex:2" id="editRoomBtn" onclick="updateRoom()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Import Setup Modal -->
+<div id="importModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
+  <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:400px;">
+    <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">📥 Import Setup Data</h3>
+    <p style="font-size:13px; color:var(--gray-500); margin-bottom:16px;">Upload a previously exported ClassGuard setup JSON file to restore Year Levels, Sections, Subjects, Schedules, Users, and Devices.</p>
+    
+    <div id="importMsg" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
+    
+    <div class="form-group">
+      <input type="file" id="importFile" accept=".json" class="form-input" style="padding:10px;">
+    </div>
+    
+    <div style="display:flex; gap:12px; margin-top:24px;">
+      <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('importModal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary" style="flex:2" id="importBtn" onclick="importSetup()">Import Data</button>
     </div>
   </div>
 </div>
@@ -553,6 +577,79 @@
       await loadRooms();
     } catch (e) {
       alert('Failed to delete: ' + (e.response?.data?.message || 'Unknown error'));
+    }
+  }
+
+  // ─── Export / Import ──────────────────────────────────────────────────────
+
+  async function exportSetup() {
+    try {
+      const res = await axios.get('/api/admin/export/setup');
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(res.data, null, 2));
+      const downloadAnchorNode = document.createElement('a');
+      downloadAnchorNode.setAttribute("href",     dataStr);
+      downloadAnchorNode.setAttribute("download", "classguard-setup-export.json");
+      document.body.appendChild(downloadAnchorNode);
+      downloadAnchorNode.click();
+      downloadAnchorNode.remove();
+    } catch (e) {
+      alert("Failed to export setup data.");
+    }
+  }
+
+  function openImportModal() {
+    document.getElementById('importFile').value = '';
+    document.getElementById('importMsg').style.display = 'none';
+    document.getElementById('importModal').style.display = 'flex';
+  }
+
+  async function importSetup() {
+    const fileInput = document.getElementById('importFile');
+    const msgEl = document.getElementById('importMsg');
+    const btn = document.getElementById('importBtn');
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+      msgEl.textContent = '❌ Please select a JSON file first.';
+      msgEl.style.display = 'block';
+      msgEl.style.background = 'rgba(239,68,68,0.08)';
+      msgEl.style.borderColor = 'rgba(239,68,68,0.2)';
+      msgEl.style.color = 'var(--red)';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    btn.disabled = true;
+    btn.textContent = 'Importing...';
+    msgEl.style.display = 'none';
+
+    try {
+      const res = await axios.post('/api/admin/import/setup', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      
+      msgEl.textContent = '✅ ' + res.data.message;
+      msgEl.style.display = 'block';
+      msgEl.style.background = 'rgba(34,197,94,0.08)';
+      msgEl.style.borderColor = 'rgba(34,197,94,0.25)';
+      msgEl.style.color = '#16a34a';
+      
+      setTimeout(() => {
+        document.getElementById('importModal').style.display = 'none';
+        loadSections();
+        loadRooms();
+      }, 2000);
+      
+    } catch (e) {
+      msgEl.textContent = '❌ ' + (e.response?.data?.message || 'Failed to import data.');
+      msgEl.style.display = 'block';
+      msgEl.style.background = 'rgba(239,68,68,0.08)';
+      msgEl.style.borderColor = 'rgba(239,68,68,0.2)';
+      msgEl.style.color = 'var(--red)';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Import Data';
     }
   }
 
