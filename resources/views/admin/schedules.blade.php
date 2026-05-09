@@ -12,7 +12,6 @@
     <a href="{{ url('/admin/schedules') }}" class="nav-item active"><span class="nav-icon">📅</span><span>Schedules</span></a>
     <a href="{{ url('/admin/prospectus') }}" class="nav-item {{ request()->is('admin/prospectus') ? 'active' : '' }}"><span class="nav-icon">📋</span><span>Prospectus</span></a>
     <a href="{{ url('/admin/rooms') }}" class="nav-item {{ request()->is('admin/rooms') ? 'active' : '' }}"><span class="nav-icon">🏠</span><span>Rooms</span></a>
-    <a href="{{ url('/admin/devices') }}" class="nav-item {{ request()->is('admin/devices') ? 'active' : '' }}"><span class="nav-icon">📡</span><span>Devices</span></a>
     <div class="nav-divider"></div>
     <a href="#" class="nav-item" onclick="openPasswordModal()"><span class="nav-icon">🔒</span><span>Change Password</span></a>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>

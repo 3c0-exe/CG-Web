@@ -100,11 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/sections/{sectionId}/students', [AdminController::class, 'enrollStudentToSection']);
         Route::delete('/sections/{sectionId}/students/{studentId}', [AdminController::class, 'unenrollStudentFromSection']);
 
-        // Devices
-        Route::get('/devices', [AdminController::class, 'allDevices']);
-        Route::post('/devices', [AdminController::class, 'registerDevice']);
-        Route::patch('/devices/{deviceId}/toggle', [AdminController::class, 'toggleDevice']);
-        Route::delete('/devices/{deviceId}', [AdminController::class, 'deleteDevice']);
+
 
         // Export / Import
         Route::get('/export/setup', [AdminController::class, 'exportSetup']);

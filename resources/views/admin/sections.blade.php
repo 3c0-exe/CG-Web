@@ -12,7 +12,6 @@
     <a href="{{ url('/admin/schedules') }}" class="nav-item {{ request()->is('admin/schedules') ? 'active' : '' }}"><span class="nav-icon">📅</span><span>Schedules</span></a>
     <a href="{{ url('/admin/prospectus') }}" class="nav-item {{ request()->is('admin/prospectus') ? 'active' : '' }}"><span class="nav-icon">📋</span><span>Prospectus</span></a>
     <a href="{{ url('/admin/rooms') }}" class="nav-item {{ request()->is('admin/rooms') ? 'active' : '' }}"><span class="nav-icon">🏠</span><span>Rooms</span></a>
-    <a href="{{ url('/admin/devices') }}" class="nav-item {{ request()->is('admin/devices') ? 'active' : '' }}"><span class="nav-icon">📡</span><span>Devices</span></a>
     <div class="nav-divider"></div>
     <a href="#" class="nav-item" onclick="openPasswordModal()"><span class="nav-icon">🔒</span><span>Change Password</span></a>
     <a href="#" class="nav-item" onclick="logout()"><span class="nav-icon">🚪</span><span>Sign Out</span></a>
@@ -191,7 +190,7 @@
 <div id="importModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:24px;">
   <div style="background:var(--white); border-radius:12px; padding:32px; width:100%; max-width:400px;">
     <h3 style="font-size:18px; font-weight:700; margin-bottom:20px;">📥 Import Setup Data</h3>
-    <p style="font-size:13px; color:var(--gray-500); margin-bottom:16px;">Upload a previously exported ClassGuard setup JSON file to restore Year Levels, Sections, Subjects, Schedules, Users, and Devices.</p>
+    <p style="font-size:13px; color:var(--gray-500); margin-bottom:16px;">Upload a previously exported ClassGuard setup JSON file to restore Year Levels, Sections, Subjects, Schedules, and Users.</p>
     
     <div id="importMsg" style="display:none; background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.2); color:var(--red); font-size:13px; padding:10px 14px; border-radius:6px; margin-bottom:16px;"></div>
     

@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AttendanceRecord;
 use App\Models\ClassSession;
 use App\Models\User;
-use App\Models\Device;
+
 use Illuminate\Http\Request;
 
 class AttendanceController extends Controller
@@ -19,15 +19,7 @@ class AttendanceController extends Controller
             'uid'        => 'required|string',
         ]);
 
-        // Device Check
-        $deviceId = $request->header('X-Device-ID');
-        if ($deviceId) {
-            $device = Device::where('device_id', $deviceId)->first();
-            if (!$device || !$device->is_active) {
-                return response()->json(['success' => false, 'message' => 'Unauthorized device'], 403);
-            }
-            $device->update(['last_seen_at' => now()]);
-        }
+
 
         $session = ClassSession::where('session_id', $request->session_id)
             ->where('status', 'active')

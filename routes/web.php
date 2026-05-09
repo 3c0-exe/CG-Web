@@ -30,5 +30,4 @@ Route::prefix('admin')->group(function () {
     Route::get('/schedules', fn() => view('admin.schedules'));
     Route::get('/prospectus', fn() => view('admin.prospectus'));
     Route::get('/rooms', fn() => view('admin.rooms'));
-    Route::get('/devices', fn() => view('admin.devices'));
 });

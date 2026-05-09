@@ -10,7 +10,7 @@ use App\Models\ClassSession;
 use App\Models\Section;
 use App\Models\YearLevel;
 use App\Models\AttendanceRecord;
-use App\Models\Device;
+
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
@@ -481,43 +481,7 @@ class AdminController extends Controller
         return response()->json(['success' => true, 'year_levels' => $yearLevels]);
     }
 
-    // ─── Devices ──────────────────────────────────────────────────────────────
 
-    public function allDevices()
-    {
-        return response()->json(['success' => true, 'devices' => Device::all()]);
-    }
-
-    public function registerDevice(Request $request)
-    {
-        $request->validate([
-            'device_id' => 'required|string|unique:devices,device_id',
-            'name'      => 'nullable|string',
-        ]);
-
-        $device = Device::create([
-            'device_id'     => $request->device_id,
-            'name'          => $request->name,
-            'is_active'     => true,
-            'registered_at' => now(),
-        ]);
-
-        return response()->json(['success' => true, 'device' => $device], 201);
-    }
-
-    public function toggleDevice(Request $request, $deviceId)
-    {
-        $request->validate(['is_active' => 'required|boolean']);
-        $device = Device::findOrFail($deviceId);
-        $device->update(['is_active' => $request->is_active]);
-        return response()->json(['success' => true, 'device' => $device]);
-    }
-
-    public function deleteDevice($deviceId)
-    {
-        Device::findOrFail($deviceId)->delete();
-        return response()->json(['success' => true, 'message' => 'Device deleted']);
-    }
 
     // ─── Export / Import ──────────────────────────────────────────────────────
 
@@ -530,7 +494,7 @@ class AdminController extends Controller
             'rooms'       => \App\Models\Room::all(),
             'schedules'   => Schedule::all(),
             'users'       => User::whereIn('role', ['professor', 'student'])->get(),
-            'devices'     => Device::all(),
+
         ];
 
         return response()->json($data);
@@ -582,11 +546,7 @@ class AdminController extends Controller
                     Schedule::updateOrCreate(['id' => $sch['id']], $sch);
                 }
             }
-            if (isset($data['devices'])) {
-                foreach ($data['devices'] as $dev) {
-                    Device::updateOrCreate(['device_id' => $dev['device_id']], $dev);
-                }
-            }
+
             DB::commit();
             return response()->json(['success' => true, 'message' => 'Setup data imported successfully.']);
         } catch (\Exception $e) {
